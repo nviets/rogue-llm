@@ -149,6 +149,7 @@ textarea { resize: vertical; width: 100%; }
 .log-line.danger    { color: var(--hp); }
 .log-line.good      { color: var(--safe); }
 .log-line.accent    { color: var(--accent); }
+.log-line.muted     { color: #555; }
 
 /* ── Collapsible panels ───────────────────────────────────────── */
 .panel { border: 1px solid var(--border); border-radius: 6px; margin: 6px 12px; overflow: hidden; }
@@ -700,13 +701,19 @@ function generateMap(rng, cartridge) {
   const last = rooms[rooms.length - 1];
   grid[last.y + 1][last.x + 1] = TILE.STAIRS_DOWN;
 
+  // tileData[y][x] = index into cartridge.hazards or cartridge.shrines
+  const tileData = Array.from({ length: H }, () => new Array(W).fill(0));
+
   // Place hazards
-  const numHazards = cartridge.hazards.length;
-  if (numHazards > 0) {
+  if (cartridge.hazards.length > 0) {
     let placed = 0;
     for (let attempt = 0; attempt < 200 && placed < 2; attempt++) {
       const x = rng.range(1, W-2), y = rng.range(1, H-2);
-      if (grid[y][x] === TILE.FLOOR) { grid[y][x] = TILE.HAZARD; placed++; }
+      if (grid[y][x] === TILE.FLOOR) {
+        grid[y][x] = TILE.HAZARD;
+        tileData[y][x] = rng.int(cartridge.hazards.length);
+        placed++;
+      }
     }
   }
 
@@ -715,7 +722,11 @@ function generateMap(rng, cartridge) {
     let placed = 0;
     for (let attempt = 0; attempt < 200 && placed < cartridge.shrines.length && placed < 2; attempt++) {
       const x = rng.range(1, W-2), y = rng.range(1, H-2);
-      if (grid[y][x] === TILE.FLOOR) { grid[y][x] = TILE.SHRINE; placed++; }
+      if (grid[y][x] === TILE.FLOOR) {
+        grid[y][x] = TILE.SHRINE;
+        tileData[y][x] = rng.int(cartridge.shrines.length);
+        placed++;
+      }
     }
   }
 
@@ -723,7 +734,7 @@ function generateMap(rng, cartridge) {
   const first = rooms[0];
   const playerStart = { x: first.x + Math.floor(first.w/2), y: first.y + Math.floor(first.h/2) };
 
-  return { grid, rooms, playerStart };
+  return { grid, rooms, playerStart, tileData };
 }
 
 // ════════════════════════════════════════════════════════════════
@@ -920,7 +931,7 @@ function initRun(cart) {
   cartridge = cart;
   const seed = Date.now() & 0xFFFFFFFF;
   const rng  = makePRNG(seed);
-  const { grid, rooms, playerStart } = generateMap(rng, cart);
+  const { grid, rooms, playerStart, tileData } = generateMap(rng, cart);
 
   const cp = cart.player;
   const playerState = {
@@ -940,7 +951,8 @@ function initRun(cart) {
     depth: 1,
     turn:  0,
     player: playerState,
-    map:   grid,
+    map:      grid,
+    tileData,
     rooms,
     fog:   Array.from({ length: GRID }, () => new Array(GRID).fill(true)),
     seen:  Array.from({ length: GRID }, () => new Array(GRID).fill(false)),
@@ -1130,7 +1142,7 @@ G.move = function(dx, dy) {
 
   // Hazard
   if (tile === TILE.HAZARD && cartridge.hazards.length > 0) {
-    const hz = state.rng.pick(cartridge.hazards);
+    const hz = cartridge.hazards[state.tileData[ny][nx] % cartridge.hazards.length];
     log(`You step on ${hz.name}!`, 'danger');
     if (hz.effect) applyEffect(hz.effect, hz.name);
   }
@@ -1139,7 +1151,7 @@ G.move = function(dx, dy) {
   if (tile === TILE.SHRINE) {
     const key = `${nx},${ny}`;
     if (!state.usedShrines.has(key) && cartridge.shrines.length > 0) {
-      const sh = state.rng.pick(cartridge.shrines);
+      const sh = cartridge.shrines[state.tileData[ny][nx] % cartridge.shrines.length];
       log(`${sh.name} glows as you approach.`, 'accent');
       if (sh.effect) applyEffect(sh.effect, sh.name);
       state.usedShrines.add(key);
@@ -1176,9 +1188,10 @@ function nextFloor() {
     state.gameOver = true;
     return;
   }
-  const { grid, rooms, playerStart } = generateMap(state.rng, cartridge);
-  state.map   = grid;
-  state.rooms = rooms;
+  const { grid, rooms, playerStart, tileData } = generateMap(state.rng, cartridge);
+  state.map      = grid;
+  state.tileData = tileData;
+  state.rooms    = rooms;
   state.fog   = Array.from({ length: GRID }, () => new Array(GRID).fill(true));
   state.seen  = Array.from({ length: GRID }, () => new Array(GRID).fill(false));
   state.player.x = playerStart.x;
@@ -1442,12 +1455,11 @@ function render() {
           cell.classList.add('cell-item');
           cell.textContent = item.glyph;
         } else {
-          // pick hazard/shrine glyphs from cartridge
           let glyph = tileGlyph[tile] ?? '?';
           if (tile === TILE.HAZARD && cartridge.hazards.length)
-            glyph = state.rng.pick(cartridge.hazards).glyph;
+            glyph = cartridge.hazards[state.tileData[y][x] % cartridge.hazards.length].glyph;
           if (tile === TILE.SHRINE && cartridge.shrines.length)
-            glyph = state.rng.pick(cartridge.shrines).glyph;
+            glyph = cartridge.shrines[state.tileData[y][x] % cartridge.shrines.length].glyph;
           cell.classList.add('cell-' + (tileCls[tile]||'floor'));
           if (inFog) cell.style.opacity = '0.35';
           cell.textContent = glyph;
