@@ -5,243 +5,194 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
 <title>Rogue LLM</title>
 <style>
-/* ── Reset & base ─────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 :root {
-  --bg:       #0d0d0d;
-  --surface:  #1a1a1a;
-  --border:   #333;
-  --accent:   #c8a84b;
-  --danger:   #c0392b;
-  --safe:     #27ae60;
-  --focus:    #2980b9;
-  --muted:    #888;
-  --text:     #e8e6e0;
-  --text-dim: #aaa;
-  --hp:       #e74c3c;
-  --mp:       #3498db;
-  --hunger:   #e67e22;
-  --cell:     32px;
-  --font:     'Courier New', Courier, monospace;
+  --bg:        #0d0d0d;
+  --surface:   #1a1a1a;
+  --border:    #333;
+  --accent:    #c8a84b;
+  --danger:    #c0392b;
+  --safe:      #27ae60;
+  --muted:     #888;
+  --text:      #e8e6e0;
+  --text-dim:  #aaa;
+  --hp:        #e74c3c;
+  --mp:        #3498db;
+  --hunger:    #e67e22;
+  --discovery: #5fb8d4;
+  --cell:      32px;
+  --font:      'Courier New', Courier, monospace;
 }
 html, body {
-  height: 100%;
-  background: var(--bg);
-  color: var(--text);
-  font-family: var(--font);
-  font-size: 15px;
-  line-height: 1.4;
-  overflow-x: hidden;
+  height: 100%; background: var(--bg); color: var(--text);
+  font-family: var(--font); font-size: 15px; line-height: 1.4; overflow-x: hidden;
 }
 button {
-  font-family: var(--font);
-  font-size: 14px;
-  background: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 8px 14px;
-  cursor: pointer;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-  user-select: none;
+  font-family: var(--font); font-size: 14px; background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); border-radius: 4px; padding: 8px 14px;
+  cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; user-select: none;
 }
 button:active { background: #2a2a2a; transform: scale(0.97); }
 button.primary { background: #2c2000; border-color: var(--accent); color: var(--accent); }
 button.primary:active { background: #3a2d00; }
 button.danger  { background: #200000; border-color: var(--danger); color: var(--danger); }
 input, textarea, select {
-  font-family: var(--font);
-  background: var(--surface);
-  color: var(--text);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 6px 10px;
-  font-size: 13px;
+  font-family: var(--font); background: var(--surface); color: var(--text);
+  border: 1px solid var(--border); border-radius: 4px; padding: 6px 10px; font-size: 13px;
 }
 textarea { resize: vertical; width: 100%; }
 
-/* ── Layout ───────────────────────────────────────────────────── */
 #app { display: flex; flex-direction: column; min-height: 100vh; max-width: 600px; margin: 0 auto; }
 
-/* ── Header ───────────────────────────────────────────────────── */
+/* Header */
 #header {
-  position: sticky; top: 0; z-index: 100;
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
-  padding: 8px 12px 6px;
+  position: sticky; top: 0; z-index: 100; background: var(--bg);
+  border-bottom: 1px solid var(--border); padding: 8px 12px 6px;
+  display: flex; justify-content: space-between; align-items: flex-start;
 }
-#header h1 { font-size: 18px; color: var(--accent); letter-spacing: 2px; }
-#premise-text { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+#header-left h1 { font-size: 18px; color: var(--accent); letter-spacing: 2px; }
+#premise-text { font-size: 12px; color: var(--text-dim); margin-top: 2px; max-width: 380px; }
+#mode-badge {
+  font-size: 11px; border: 1px solid var(--border); border-radius: 3px;
+  padding: 3px 7px; white-space: nowrap; margin-top: 2px; color: var(--muted);
+}
+#mode-badge.relaxed { color: var(--safe); border-color: var(--safe); }
+#mode-badge.classic { color: var(--accent); border-color: var(--accent); }
 
-/* ── Stats bar ────────────────────────────────────────────────── */
+/* Stats bar */
 #stats-bar {
-  display: flex; flex-wrap: wrap; gap: 6px 14px;
-  padding: 8px 12px;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  font-size: 13px;
+  display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 8px 12px;
+  background: var(--surface); border-bottom: 1px solid var(--border); font-size: 13px;
 }
 .stat { display: flex; align-items: center; gap: 4px; }
 .stat-label { color: var(--muted); font-size: 11px; }
-.stat-val   { font-weight: bold; }
+.stat-val { font-weight: bold; }
 .stat-hp    { color: var(--hp); }
 .stat-mp    { color: var(--mp); }
 .stat-hunger{ color: var(--hunger); }
 .stat-depth { color: var(--accent); }
 .stat-keys  { color: #f1c40f; }
 
-/* ── Map area ─────────────────────────────────────────────────── */
+/* Map */
 #map-area { display: flex; justify-content: center; padding: 10px 6px 4px; }
 #map-canvas {
-  display: grid;
-  gap: 0;
-  font-size: 17px;
-  line-height: 1;
-  border: 1px solid var(--border);
-  background: #080808;
-  cursor: default;
+  display: grid; gap: 0; font-size: 17px; line-height: 1;
+  border: 1px solid var(--border); background: #080808; cursor: default;
 }
 .cell {
   width: var(--cell); height: var(--cell);
   display: flex; align-items: center; justify-content: center;
-  font-size: 16px;
-  user-select: none;
+  font-size: 16px; user-select: none;
 }
-/* tile types */
-.cell-floor  { color: #444; }
-.cell-wall   { color: #666; background: #111; }
-.cell-door   { color: #c8a84b; }
-.cell-stairs { color: #a855f7; }
-.cell-dark   { color: #111; background: #080808; }
-.cell-player { color: #fff; font-weight: bold; }
-.cell-monster{ color: #e74c3c; }
-.cell-item   { color: #f1c40f; }
-.cell-hazard { color: #e67e22; }
-.cell-shrine { color: #3498db; }
+.cell-floor     { color: #444; }
+.cell-wall      { color: #666; background: #111; }
+.cell-door      { color: #c8a84b; }
+.cell-stairs    { color: #a855f7; }
+.cell-dark      { color: #111; background: #080808; }
+.cell-player    { color: #fff; font-weight: bold; }
+.cell-monster   { color: #e74c3c; }
+.cell-item      { color: #f1c40f; }
+.cell-hazard    { color: #e67e22; }
+.cell-shrine    { color: #3498db; }
+.cell-discovery { color: var(--discovery); }
 
-/* ── Touch controls ───────────────────────────────────────────── */
+/* D-pad */
 #dpad-area { padding: 8px 12px; display: flex; gap: 12px; align-items: center; justify-content: center; }
 #dpad {
-  display: grid;
-  grid-template-columns: repeat(3, 52px);
-  grid-template-rows: repeat(3, 52px);
-  gap: 4px;
+  display: grid; grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(3, 52px); gap: 4px;
 }
 #dpad button { width: 52px; height: 52px; font-size: 22px; padding: 0; }
-#dpad .empty { background: transparent; border: none; cursor: default; }
-#action-btns { display: flex; flex-direction: column; gap: 8px; }
-#action-btns button { font-size: 13px; padding: 10px 14px; min-width: 80px; }
+#dpad .empty  { background: transparent; border: none; cursor: default; }
+#action-btns { display: flex; flex-direction: column; gap: 6px; }
+#action-btns button { font-size: 12px; padding: 9px 12px; min-width: 78px; }
 
-/* ── Log ──────────────────────────────────────────────────────── */
+/* Stair banner — shown only when player is on stairs */
+#stair-banner { display: none; padding: 4px 12px 2px; }
+#stair-banner button { width: 100%; font-size: 15px; padding: 12px; letter-spacing: 1px; }
+
+/* Log */
 #log-area { padding: 0 12px 8px; }
 #log {
-  background: #0a0a0a;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  padding: 8px 10px;
-  height: 100px;
-  overflow-y: auto;
-  font-size: 13px;
+  background: #0a0a0a; border: 1px solid var(--border); border-radius: 4px;
+  padding: 8px 10px; height: 110px; overflow-y: auto; font-size: 13px;
 }
-.log-line { color: var(--text-dim); }
+.log-line           { color: var(--text-dim); }
 .log-line.important { color: var(--text); }
 .log-line.danger    { color: var(--hp); }
 .log-line.good      { color: var(--safe); }
 .log-line.accent    { color: var(--accent); }
 .log-line.muted     { color: #555; }
+.log-line.discovery { color: var(--discovery); }
 
-/* ── Collapsible panels ───────────────────────────────────────── */
+/* Panels */
 .panel { border: 1px solid var(--border); border-radius: 6px; margin: 6px 12px; overflow: hidden; }
 .panel-header {
   display: flex; justify-content: space-between; align-items: center;
-  padding: 10px 14px;
-  background: var(--surface);
-  cursor: pointer;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent;
-  font-size: 13px;
+  padding: 10px 14px; background: var(--surface); cursor: pointer;
+  user-select: none; -webkit-tap-highlight-color: transparent; font-size: 13px;
 }
 .panel-header span { color: var(--muted); font-size: 12px; }
 .panel-body { padding: 10px 14px; background: #0f0f0f; display: none; }
 .panel-body.open { display: block; }
 
-/* ── Inventory ────────────────────────────────────────────────── */
+/* Inventory */
 #inventory-list { display: flex; flex-direction: column; gap: 6px; }
 .inv-item {
-  display: flex; align-items: center; gap: 8px;
-  padding: 6px 8px;
-  background: var(--surface);
-  border-radius: 4px;
-  border: 1px solid var(--border);
-  font-size: 13px;
+  display: flex; align-items: center; gap: 8px; padding: 6px 8px;
+  background: var(--surface); border-radius: 4px; border: 1px solid var(--border); font-size: 13px;
 }
 .inv-glyph { font-size: 18px; width: 24px; text-align: center; }
 .inv-name  { flex: 1; }
 .inv-kind  { color: var(--muted); font-size: 11px; }
 
-/* ── Faction panel ────────────────────────────────────────────── */
+/* Factions */
 #faction-list { display: flex; flex-direction: column; gap: 6px; }
-.faction-row {
-  display: flex; align-items: center; gap: 8px;
-  font-size: 13px; padding: 4px 0;
-}
+.faction-row { display: flex; align-items: center; gap: 8px; font-size: 13px; padding: 4px 0; }
 .faction-name { flex: 1; }
-.faction-rep-bar {
-  width: 80px; height: 8px;
-  background: var(--border); border-radius: 4px; overflow: hidden;
-}
+.faction-rep-bar { width: 80px; height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
 .faction-rep-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
 .rep-pos { background: var(--safe); }
 .rep-neg { background: var(--danger); }
 .faction-rep-val { width: 30px; text-align: right; font-size: 12px; color: var(--muted); }
 
-/* ── Power selection ──────────────────────────────────────────── */
-#power-list { display: flex; flex-direction: column; gap: 6px; }
-.power-btn {
-  text-align: left;
-  padding: 8px 12px;
-  width: 100%;
-  display: flex; gap: 8px; align-items: center;
-}
-.power-cost { color: var(--mp); font-size: 12px; margin-left: auto; }
+/* Mode toggle */
+.mode-btn { font-size: 11px; padding: 5px 10px; }
+.mode-btn.active { background: #0a1800; border-color: var(--safe); color: var(--safe); }
 
-/* ── Cartridge panel ──────────────────────────────────────────── */
+/* LLM prompt panel */
+.prompt-steps {
+  background: #0a0a0a; border: 1px solid var(--border); border-radius: 4px;
+  padding: 8px 12px; margin-bottom: 10px;
+}
+.step { font-size: 12px; color: var(--text-dim); display: flex; gap: 8px; padding: 2px 0; }
+.step-num { color: var(--accent); font-weight: bold; min-width: 16px; }
+#theme-input { height: 80px; margin-bottom: 8px; }
+#llm-prompt  { height: 150px; font-size: 11px; }
+
+/* Cartridge panel */
 #cartridge-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
 #cartridge-json { height: 160px; font-size: 11px; }
 
-/* ── LLM prompt panel ─────────────────────────────────────────── */
-#llm-prompt { height: 200px; font-size: 11px; }
-#copy-prompt-btn { margin-top: 8px; }
-
-/* ── Error/debug panel ────────────────────────────────────────── */
+/* Debug */
 #debug-panel { margin: 6px 12px 12px; }
 #debug-panel .panel-body { max-height: 150px; overflow-y: auto; }
 #debug-log { font-size: 11px; color: #c0392b; }
 .debug-line { padding: 1px 0; border-bottom: 1px solid #1a0000; }
 
-/* ── Modal overlay ────────────────────────────────────────────── */
+/* Modal */
 #modal-overlay {
-  display: none;
-  position: fixed; inset: 0; z-index: 200;
-  background: rgba(0,0,0,0.85);
-  align-items: center; justify-content: center;
-  padding: 20px;
+  display: none; position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.85); align-items: center; justify-content: center; padding: 20px;
 }
 #modal-overlay.open { display: flex; }
 #modal-box {
-  background: var(--surface);
-  border: 1px solid var(--accent);
-  border-radius: 8px;
-  padding: 24px;
-  max-width: 420px; width: 100%;
-  text-align: center;
+  background: var(--surface); border: 1px solid var(--accent); border-radius: 8px;
+  padding: 24px; max-width: 420px; width: 100%; text-align: center;
 }
 #modal-box h2 { color: var(--accent); margin-bottom: 12px; }
 #modal-box p  { color: var(--text-dim); font-size: 14px; margin-bottom: 20px; line-height: 1.6; }
 #modal-btns   { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
 
-/* ── Utility ──────────────────────────────────────────────────── */
 .hidden { display: none !important; }
 .spacer { flex: 1; }
 </style>
@@ -249,132 +200,128 @@ textarea { resize: vertical; width: 100%; }
 <body>
 <div id="app">
 
-  <!-- HEADER -->
   <div id="header">
-    <h1 id="game-title">ROGUE LLM</h1>
-    <div id="premise-text">Loading world…</div>
+    <div id="header-left">
+      <h1 id="game-title">ROGUE LLM</h1>
+      <div id="premise-text">Loading world…</div>
+    </div>
+    <div id="mode-badge" class="relaxed">RELAXED</div>
   </div>
 
-  <!-- STATS BAR -->
   <div id="stats-bar">
-    <div class="stat"><span class="stat-label">HP</span> <span class="stat-val stat-hp" id="s-hp">—</span></div>
-    <div class="stat"><span class="stat-label">FCS</span><span class="stat-val stat-mp"  id="s-fp">—</span></div>
-    <div class="stat"><span class="stat-label">HNG</span><span class="stat-val stat-hunger" id="s-hng">—</span></div>
-    <div class="stat"><span class="stat-label">ATK</span><span class="stat-val" id="s-atk">—</span></div>
-    <div class="stat"><span class="stat-label">DEF</span><span class="stat-val" id="s-def">—</span></div>
-    <div class="stat"><span class="stat-label">KEYS</span><span class="stat-val stat-keys" id="s-keys">—</span></div>
-    <div class="stat"><span class="stat-label">DEPTH</span><span class="stat-val stat-depth" id="s-depth">—</span></div>
+    <div class="stat"><span class="stat-label">HP</span>   <span class="stat-val stat-hp"     id="s-hp">—</span></div>
+    <div class="stat"><span class="stat-label">FCS</span>  <span class="stat-val stat-mp"      id="s-fp">—</span></div>
+    <div class="stat"><span class="stat-label">HNG</span>  <span class="stat-val stat-hunger"  id="s-hng">—</span></div>
+    <div class="stat"><span class="stat-label">ATK</span>  <span class="stat-val"              id="s-atk">—</span></div>
+    <div class="stat"><span class="stat-label">DEF</span>  <span class="stat-val"              id="s-def">—</span></div>
+    <div class="stat"><span class="stat-label">KEYS</span> <span class="stat-val stat-keys"    id="s-keys">—</span></div>
+    <div class="stat"><span class="stat-label">DEPTH</span><span class="stat-val stat-depth"   id="s-depth">—</span></div>
   </div>
 
-  <!-- MAP -->
-  <div id="map-area">
-    <div id="map-canvas"></div>
-  </div>
+  <div id="map-area"><div id="map-canvas"></div></div>
 
-  <!-- D-PAD + ACTION BUTTONS -->
   <div id="dpad-area">
     <div id="dpad">
       <div class="empty"></div>
-      <button id="btn-up"   onclick="G.move(0,-1)">▲</button>
+      <button onclick="G.move(0,-1)">▲</button>
       <div class="empty"></div>
-      <button id="btn-left" onclick="G.move(-1,0)">◀</button>
-      <button id="btn-wait" onclick="G.wait()">·</button>
-      <button id="btn-right"onclick="G.move(1,0)">▶</button>
+      <button onclick="G.move(-1,0)">◀</button>
+      <button onclick="G.wait()">·</button>
+      <button onclick="G.move(1,0)">▶</button>
       <div class="empty"></div>
-      <button id="btn-down" onclick="G.move(0,1)">▼</button>
+      <button onclick="G.move(0,1)">▼</button>
       <div class="empty"></div>
     </div>
     <div class="spacer"></div>
     <div id="action-btns">
-      <button class="primary" onclick="G.newRun()">New Run</button>
+      <button class="primary" onclick="G.confirmNewRun()">New Run</button>
       <button onclick="G.useItem()">Use Item</button>
       <button onclick="G.usePower()">Power</button>
       <button onclick="G.inspect()">Inspect</button>
+      <button onclick="G.retreat()">Retreat</button>
     </div>
   </div>
 
-  <!-- LOG -->
-  <div id="log-area">
-    <div id="log"></div>
+  <!-- Shown only when player stands on stairs -->
+  <div id="stair-banner">
+    <button class="primary" onclick="G.descend()">▼ Descend</button>
   </div>
 
-  <!-- SECONDARY BUTTONS ROW -->
-  <div style="display:flex;gap:8px;padding:4px 12px 8px;flex-wrap:wrap;">
+  <div id="log-area"><div id="log"></div></div>
+
+  <div style="display:flex;gap:8px;padding:4px 12px 8px;flex-wrap:wrap;align-items:center;">
     <button onclick="G.saveGame()">Save</button>
     <button onclick="G.loadGame()">Load</button>
-    <button class="danger" onclick="G.confirmNewRun()">New Run</button>
+    <div style="margin-left:auto;display:flex;gap:4px;">
+      <button id="mode-relaxed" class="mode-btn active" onclick="G.setDifficulty('relaxed')" title="Forgiving and exploratory">Relaxed</button>
+      <button id="mode-classic" class="mode-btn"        onclick="G.setDifficulty('classic')" title="Traditional roguelike">Classic</button>
+    </div>
   </div>
 
-  <!-- INVENTORY PANEL -->
   <div class="panel" id="inv-panel">
-    <div class="panel-header" onclick="togglePanel('inv-panel')">
-      Inventory <span id="inv-count">(empty)</span>
-    </div>
+    <div class="panel-header" onclick="togglePanel('inv-panel')">Inventory <span id="inv-count">(empty)</span></div>
     <div class="panel-body" id="inv-body">
       <div id="inventory-list"><em style="color:var(--muted)">Nothing carried.</em></div>
     </div>
   </div>
 
-  <!-- POWERS PANEL -->
   <div class="panel" id="powers-panel">
-    <div class="panel-header" onclick="togglePanel('powers-panel')">
-      Powers
-    </div>
+    <div class="panel-header" onclick="togglePanel('powers-panel')">Powers</div>
     <div class="panel-body" id="powers-body">
       <div id="power-list"><em style="color:var(--muted)">No powers.</em></div>
     </div>
   </div>
 
-  <!-- FACTIONS PANEL -->
   <div class="panel" id="factions-panel">
-    <div class="panel-header" onclick="togglePanel('factions-panel')">
-      Factions
-    </div>
+    <div class="panel-header" onclick="togglePanel('factions-panel')">Factions</div>
     <div class="panel-body" id="factions-body">
       <div id="faction-list"><em style="color:var(--muted)">No factions.</em></div>
     </div>
   </div>
 
-  <!-- CARTRIDGE PANEL -->
-  <div class="panel" id="cart-panel">
-    <div class="panel-header" onclick="togglePanel('cart-panel')">
-      World Cartridge
+  <!-- LLM World Generator -->
+  <div class="panel" id="llm-panel">
+    <div class="panel-header" onclick="togglePanel('llm-panel')">Generate a World</div>
+    <div class="panel-body" id="llm-body">
+      <div class="prompt-steps">
+        <div class="step"><span class="step-num">1</span>Enter a theme below (or leave blank for random)</div>
+        <div class="step"><span class="step-num">2</span>Tap <strong>Build Prompt</strong></div>
+        <div class="step"><span class="step-num">3</span>Tap <strong>Copy Prompt</strong></div>
+        <div class="step"><span class="step-num">4</span>Paste into Claude, ChatGPT, or Gemma</div>
+        <div class="step"><span class="step-num">5</span>Copy the JSON the LLM returns</div>
+        <div class="step"><span class="step-num">6</span>Open World Cartridge panel below</div>
+        <div class="step"><span class="step-num">7</span>Paste JSON, tap <strong>Import JSON</strong></div>
+      </div>
+      <textarea id="theme-input" placeholder="Theme ideas:&#10;A cozy-but-uncanny botanical spaceship where orchids remember crimes.&#10;A funny airport purgatory where delayed passengers form factions.&#10;Antarctic mycology horror: the fungus has been here longer than science."></textarea>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin:8px 0;">
+        <button class="primary" onclick="G.buildPromptFromTheme()">Build Prompt</button>
+        <button onclick="G.copyPrompt()">Copy Prompt</button>
+      </div>
+      <textarea id="llm-prompt" readonly placeholder="Click 'Build Prompt' to generate your LLM prompt here…"></textarea>
     </div>
+  </div>
+
+  <!-- World Cartridge import/export -->
+  <div class="panel" id="cart-panel">
+    <div class="panel-header" onclick="togglePanel('cart-panel')">World Cartridge</div>
     <div class="panel-body" id="cart-body">
       <div id="cartridge-actions">
         <button class="primary" onclick="G.exportCartridge()">Export JSON</button>
         <button onclick="G.importCartridgePrompt()">Import JSON</button>
-        <button onclick="G.loadDefaultCartridge()">Load Default</button>
+        <button onclick="G.loadDefaultCartridge()">Load Lima</button>
+        <button onclick="G.loadExampleCartridge()">Load Example</button>
       </div>
-      <textarea id="cartridge-json" placeholder="Paste cartridge JSON here then click Import JSON…"></textarea>
+      <textarea id="cartridge-json" placeholder="Paste cartridge JSON here then tap Import JSON…"></textarea>
     </div>
   </div>
 
-  <!-- LLM PROMPT PANEL -->
-  <div class="panel" id="llm-panel">
-    <div class="panel-header" onclick="togglePanel('llm-panel')">
-      Generate World (LLM Prompt)
-    </div>
-    <div class="panel-body" id="llm-body">
-      <p style="font-size:12px;color:var(--text-dim);margin-bottom:8px;">Copy this prompt into ChatGPT, Claude, Gemma, etc. Paste the returned JSON into the cartridge field above.</p>
-      <textarea id="llm-prompt" readonly></textarea>
-      <button id="copy-prompt-btn" onclick="G.copyPrompt()">Copy Prompt</button>
-    </div>
-  </div>
-
-  <!-- DEBUG PANEL -->
   <div class="panel" id="debug-panel">
-    <div class="panel-header" onclick="togglePanel('debug-panel')">
-      Error Log <span id="err-count"></span>
-    </div>
-    <div class="panel-body" id="debug-body">
-      <div id="debug-log"></div>
-    </div>
+    <div class="panel-header" onclick="togglePanel('debug-panel')">Error Log <span id="err-count"></span></div>
+    <div class="panel-body" id="debug-body"><div id="debug-log"></div></div>
   </div>
 
 </div><!-- #app -->
 
-<!-- MODAL -->
 <div id="modal-overlay">
   <div id="modal-box">
     <h2 id="modal-title">Title</h2>
@@ -387,7 +334,7 @@ textarea { resize: vertical; width: 100%; }
 'use strict';
 
 // ════════════════════════════════════════════════════════════════
-//  DEBUG / ERROR PANEL
+//  DEBUG PANEL
 // ════════════════════════════════════════════════════════════════
 const Debug = (function() {
   let count = 0;
@@ -401,13 +348,8 @@ const Debug = (function() {
     const cnt = document.getElementById('err-count');
     if (cnt) cnt.textContent = `(${count})`;
   }
-  window.onerror = function(msg, src, line) {
-    log(`JS ERROR: ${msg} @ ${src}:${line}`);
-    return false;
-  };
-  window.onunhandledrejection = function(e) {
-    log(`PROMISE: ${e.reason}`);
-  };
+  window.onerror = (msg, src, line) => { log(`JS ERROR: ${msg} @ ${src}:${line}`); return false; };
+  window.onunhandledrejection = e => log(`PROMISE: ${e.reason}`);
   return { log };
 })();
 
@@ -423,13 +365,53 @@ const EFFECT_TYPES = new Set([
 ]);
 
 // ════════════════════════════════════════════════════════════════
-//  RNG  (seeded LCG – deterministic, no external deps)
+//  DIFFICULTY PRESETS
+//
+//  Relaxed (default): exploration-forward, forgiving hunger, safety
+//  net on first death, free retreat, lots of items and discoveries.
+//
+//  Classic: traditional roguelike tension — sparse items, fast
+//  hunger, no safety net, retreat costs focus.
+// ════════════════════════════════════════════════════════════════
+const DIFFICULTY = {
+  relaxed: {
+    monsterChance:          0.30,  // fraction of non-start rooms with a monster
+    itemChance:             0.80,  // fraction of rooms with an item
+    discoveryChance:        0.70,  // fraction of rooms with a non-combat discovery
+    eventChance:            25,    // 1-in-N random event per turn
+    hazardMaxCount:         1,
+    shrineCount:            3,
+    hungerLossEveryTurns:   15,    // gentle hunger drain
+    playerHpMultiplier:     1.25,
+    playerFocusMultiplier:  1.30,
+    deathSafetyNet:         true,  // once-per-run rescue at 0 HP
+    retreatFocusCost:       0      // emergency blink is free
+  },
+  classic: {
+    monsterChance:          0.70,
+    itemChance:             0.50,
+    discoveryChance:        0.25,
+    eventChance:            20,
+    hazardMaxCount:         2,
+    shrineCount:            1,
+    hungerLossEveryTurns:   10,
+    playerHpMultiplier:     1.0,
+    playerFocusMultiplier:  1.0,
+    deathSafetyNet:         false,
+    retreatFocusCost:       3
+  }
+};
+
+let currentDifficulty = 'relaxed';
+
+// ════════════════════════════════════════════════════════════════
+//  RNG (seeded LCG — no external deps)
 // ════════════════════════════════════════════════════════════════
 function makePRNG(seed) {
   let s = seed >>> 0 || 12345;
   return {
-    next()  { s = (Math.imul(1664525, s) + 1013904223) >>> 0; return s; },
-    int(n)  { return this.next() % n; },
+    next()     { s = (Math.imul(1664525, s) + 1013904223) >>> 0; return s; },
+    int(n)     { return this.next() % n; },
     range(a,b) { return a + this.int(b - a + 1); },
     pick(arr)  { return arr[this.int(arr.length)]; },
     shuffle(arr) {
@@ -449,9 +431,8 @@ function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
 function validateEffect(eff, path) {
   if (!eff || typeof eff !== 'object') return null;
-  if (!EFFECT_TYPES.has(eff.type)) {
+  if (!EFFECT_TYPES.has(eff.type))
     throw new Error(`Illegal effect type "${eff.type}" at ${path}`);
-  }
   return eff;
 }
 
@@ -460,30 +441,25 @@ function validateCartridge(raw) {
   let c;
   try { c = (typeof raw === 'string') ? JSON.parse(raw) : raw; }
   catch(e) { throw new Error('Invalid JSON: ' + e.message); }
-
   if (!c || typeof c !== 'object') throw new Error('Cartridge must be a JSON object');
 
-  // Required string fields
   for (const f of ['title','premise']) {
-    if (!c[f] || typeof c[f] !== 'string' || !c[f].trim()) {
+    if (!c[f] || typeof c[f] !== 'string' || !c[f].trim())
       errors.push(`Missing required field: "${f}"`);
-    }
   }
 
-  // Creatures
   if (!Array.isArray(c.creatures) || c.creatures.length === 0) {
     errors.push('Cartridge must have at least one creature');
   } else {
     c.creatures = c.creatures.map((cr, i) => {
       if (!cr.id || !cr.name || !cr.glyph) errors.push(`Creature[${i}] missing id/name/glyph`);
-      cr.hp      = clamp(Number(cr.hp)||8, 1, 500);
-      cr.attack  = clamp(Number(cr.attack)||2, 0, 100);
+      cr.hp      = clamp(Number(cr.hp)||8,      1, 500);
+      cr.attack  = clamp(Number(cr.attack)||2,  0, 100);
       cr.defense = clamp(Number(cr.defense)||0, 0, 50);
       return cr;
     });
   }
 
-  // Items
   if (!Array.isArray(c.items) || c.items.length === 0) {
     errors.push('Cartridge must have at least one item');
   } else {
@@ -497,196 +473,255 @@ function validateCartridge(raw) {
     });
   }
 
-  // Rooms
-  if (!Array.isArray(c.rooms) || c.rooms.length === 0) {
+  if (!Array.isArray(c.rooms) || c.rooms.length === 0)
     errors.push('Cartridge must have at least one room');
-  }
 
-  // Events
-  c.events = Array.isArray(c.events) ? c.events : [];
-  c.events.forEach((ev, i) => {
-    if (ev.effect) validateEffect(ev.effect, `event[${ev.id||i}].effect`);
-  });
-
-  // Hazards
+  c.events  = Array.isArray(c.events)  ? c.events  : [];
   c.hazards = Array.isArray(c.hazards) ? c.hazards : [];
-  c.hazards.forEach((h, i) => {
-    if (h.effect) validateEffect(h.effect, `hazard[${h.id||i}].effect`);
-  });
-
-  // Shrines
   c.shrines = Array.isArray(c.shrines) ? c.shrines : [];
-  c.shrines.forEach((sh, i) => {
-    if (sh.effect) validateEffect(sh.effect, `shrine[${sh.id||i}].effect`);
-  });
+  c.powers  = Array.isArray(c.powers)  ? c.powers  : [];
 
-  // Powers
-  c.powers = Array.isArray(c.powers) ? c.powers : [];
-  c.powers.forEach((p, i) => {
+  c.events .forEach((ev,i) => { if (ev.effect)  validateEffect(ev.effect,  `event[${ev.id||i}].effect`);  });
+  c.hazards.forEach((h, i) => { if (h.effect)   validateEffect(h.effect,   `hazard[${h.id||i}].effect`);  });
+  c.shrines.forEach((sh,i) => { if (sh.effect)  validateEffect(sh.effect,  `shrine[${sh.id||i}].effect`); });
+  c.powers .forEach((p, i) => {
     if (p.effect) validateEffect(p.effect, `power[${p.id||i}].effect`);
     p.cost = clamp(Number(p.cost)||4, 0, 99);
   });
 
-  // Player defaults
   c.player = c.player || {};
-  c.player.glyph    = c.player.glyph  || '@';
-  c.player.max_hp   = clamp(Number(c.player.max_hp)||30,  5, 200);
-  c.player.max_focus= clamp(Number(c.player.max_focus)||12, 0, 100);
-  c.player.attack   = clamp(Number(c.player.attack)||5, 1, 50);
-  c.player.defense  = clamp(Number(c.player.defense)||1, 0, 30);
-  c.player.hunger   = clamp(Number(c.player.hunger)||80, 10, 300);
+  c.player.glyph     = c.player.glyph   || '@';
+  c.player.max_hp    = clamp(Number(c.player.max_hp)   ||30, 5,  200);
+  c.player.max_focus = clamp(Number(c.player.max_focus)||12, 0,  100);
+  c.player.attack    = clamp(Number(c.player.attack)   ||5,  1,  50);
+  c.player.defense   = clamp(Number(c.player.defense)  ||1,  0,  30);
+  c.player.hunger    = clamp(Number(c.player.hunger)   ||80, 10, 300);
 
-  // Factions
-  c.factions = Array.isArray(c.factions) ? c.factions : [];
-  c.factions = c.factions.map(f => ({
-    id: f.id || 'unknown',
-    name: f.name || 'Unknown',
+  c.factions = Array.isArray(c.factions) ? c.factions.map(f => ({
+    id: f.id||'unknown', name: f.name||'Unknown',
     reputation: clamp(Number(f.reputation)||0, -100, 100),
-    agenda: f.agenda || ''
-  }));
+    agenda: f.agenda||''
+  })) : [];
 
-  // Defaults
-  c.tone          = Array.isArray(c.tone) ? c.tone : [];
-  c.laws_of_reality = Array.isArray(c.laws_of_reality) ? c.laws_of_reality : [];
-  c.quest_hooks   = Array.isArray(c.quest_hooks) ? c.quest_hooks : [];
-  c.endings       = Array.isArray(c.endings) ? c.endings : [{ id:'default', text:'Your journey ends here.' }];
-  c.genre         = c.genre || 'roguelike';
-  c.schema_version= c.schema_version || '0.4';
+  c.tone            = Array.isArray(c.tone)             ? c.tone            : [];
+  c.laws_of_reality = Array.isArray(c.laws_of_reality)  ? c.laws_of_reality : [];
+  c.quest_hooks     = Array.isArray(c.quest_hooks)       ? c.quest_hooks     : [];
+  c.endings         = Array.isArray(c.endings) && c.endings.length
+    ? c.endings : [{ id:'default', text:'Your journey ends here.' }];
+  c.genre           = c.genre           || 'roguelike';
+  c.schema_version  = c.schema_version  || '0.4';
 
   if (errors.length > 0) throw new Error(errors.join('\n'));
   return c;
 }
 
 // ════════════════════════════════════════════════════════════════
-//  DEFAULT CARTRIDGE
+//  DEFAULT CARTRIDGE — The Sky Beneath Lima
 // ════════════════════════════════════════════════════════════════
 const DEFAULT_CARTRIDGE = {
-  schema_version: "0.4",
-  title: "The Sky Beneath Lima",
-  genre: "mythic-horror comedy",
-  premise: "A red-eye flight over Peru folds into a monastery catacomb where colonial saints, pre-Columbian huacas, airline ghosts, guano syndicates, and salt monks dispute ownership of your itinerary.",
-  tone: ["strange","wry","dangerous","mythic"],
-  laws_of_reality: [
+  schema_version:"0.4", title:"The Sky Beneath Lima", genre:"mythic-horror comedy",
+  premise:"A red-eye flight over Peru folds into a monastery catacomb where colonial saints, pre-Columbian huacas, airline ghosts, guano syndicates, and salt monks dispute ownership of your itinerary.",
+  tone:["strange","wry","dangerous","mythic"],
+  laws_of_reality:[
     "The dead maintain strong opinions about ticketing policies.",
     "Salt is both currency and sin.",
     "Altitude sickness and divine revelation are the same malady.",
     "All flight schedules are aspirational."
   ],
-  player: { name:"Stranded Passenger", max_hp:30, max_focus:12, attack:5, defense:1, hunger:80, glyph:"@" },
-  powers: [
-    { id:"boarding_pass", name:"Boarding Pass", cost:4, description:"Flash your pass—a blinding divine light reveals all entities on this floor.", effect:{ type:"reveal_map", amount:0 } },
-    { id:"salt_ward", name:"Salt Ward", cost:6, description:"Ring yourself with holy salt. Gain +3 defense for several turns.", effect:{ type:"defense_bonus", amount:3 } },
-    { id:"huaca_blessing", name:"Huaca Blessing", cost:8, description:"A stone deity lends you vigor. Heal 10 HP.", effect:{ type:"heal", amount:10 } }
+  player:{ name:"Stranded Passenger", max_hp:30, max_focus:12, attack:5, defense:1, hunger:80, glyph:"@" },
+  powers:[
+    { id:"boarding_pass",  name:"Boarding Pass",   cost:4, description:"Flash your pass — divine light reveals all entities on this floor.", effect:{ type:"reveal_map",    amount:0 } },
+    { id:"salt_ward",      name:"Salt Ward",        cost:6, description:"Ring yourself with holy salt. Gain +3 defense.",                   effect:{ type:"defense_bonus", amount:3 } },
+    { id:"huaca_blessing", name:"Huaca Blessing",   cost:8, description:"A stone deity lends vigor. Heal 10 HP.",                          effect:{ type:"heal",          amount:10} }
   ],
-  factions: [
-    { id:"colonial_saints", name:"Colonial Saints",  reputation:0, agenda:"Reclaim the upper catacombs for the Church of Lima." },
-    { id:"huacas",          name:"Pre-Columbian Huacas", reputation:0, agenda:"Restore the old rites before the salt runs out." },
-    { id:"airline_ghosts",  name:"Airline Ghosts",   reputation:0, agenda:"Achieve posthumous on-time arrival. Codes may vary." },
-    { id:"guano_syndicate", name:"Guano Syndicate",  reputation:0, agenda:"Monopolize all fertilizer routes, living or dead." }
+  factions:[
+    { id:"colonial_saints",  name:"Colonial Saints",       reputation:0, agenda:"Reclaim the upper catacombs for the Church of Lima." },
+    { id:"huacas",           name:"Pre-Columbian Huacas",  reputation:0, agenda:"Restore the old rites before the salt runs out." },
+    { id:"airline_ghosts",   name:"Airline Ghosts",        reputation:0, agenda:"Achieve posthumous on-time arrival. Codes may vary." },
+    { id:"guano_syndicate",  name:"Guano Syndicate",       reputation:0, agenda:"Monopolize all fertilizer routes, living or dead." }
   ],
-  creatures: [
-    { id:"guano_bat",      name:"Guano Bat",          glyph:"🦇", hp:6,  attack:3, defense:0, behavior:"chase", tags:["flying","syndicate"] },
-    { id:"colonial_saint", name:"Jilted Saint",        glyph:"✝",  hp:12, attack:5, defense:2, behavior:"patrol", tags:["undead","saint"] },
-    { id:"salt_monk",      name:"Salt Monk",           glyph:"🧂", hp:10, attack:4, defense:3, behavior:"guard", tags:["monk"] },
-    { id:"airline_ghost",  name:"Airline Ghost",       glyph:"👻", hp:8,  attack:4, defense:1, behavior:"chase", tags:["ghost","airline"] },
-    { id:"huaca_idol",     name:"Animate Huaca",       glyph:"🗿", hp:18, attack:7, defense:4, behavior:"guard", tags:["stone","huaca"] },
-    { id:"guano_foreman",  name:"Guano Syndicate Foreman", glyph:"🎩", hp:22, attack:8, defense:3, behavior:"chase", tags:["boss","syndicate"] }
+  creatures:[
+    { id:"guano_bat",      name:"Guano Bat",                   glyph:"🦇", hp:6,  attack:3, defense:0, behavior:"chase",  tags:["flying"] },
+    { id:"colonial_saint", name:"Jilted Saint",                glyph:"✝",  hp:12, attack:5, defense:2, behavior:"patrol", tags:["undead"] },
+    { id:"salt_monk",      name:"Salt Monk",                   glyph:"🧂", hp:10, attack:4, defense:3, behavior:"guard",  tags:["monk"] },
+    { id:"airline_ghost",  name:"Airline Ghost",               glyph:"👻", hp:8,  attack:4, defense:1, behavior:"chase",  tags:["ghost"] },
+    { id:"huaca_idol",     name:"Animate Huaca",               glyph:"🗿", hp:18, attack:7, defense:4, behavior:"guard",  tags:["stone"] },
+    { id:"guano_foreman",  name:"Guano Syndicate Foreman",     glyph:"🎩", hp:22, attack:8, defense:3, behavior:"chase",  tags:["boss"] }
   ],
-  items: [
-    { id:"altitude_tabs",   name:"Altitude Tablets",   glyph:"💊", kind:"food",   description:"Restore 8 hunger; slight euphoria.", rarity:1, effect:{ type:"hunger_change", amount:25 } },
-    { id:"pisco_flask",     name:"Pisco Flask",         glyph:"🍶", kind:"potion", description:"Heal 10 HP; the saints disapprove.", rarity:2, effect:{ type:"heal", amount:10 } },
-    { id:"gate_key",        name:"Gate Key",            glyph:"🗝", kind:"key",    description:"Opens a locked catacomb door.", rarity:2, effect:{ type:"add_key", amount:1 } },
-    { id:"cargo_manifest",  name:"Cargo Manifest",      glyph:"📋", kind:"relic",  description:"Reveal the entire floor layout.", rarity:3, effect:{ type:"reveal_map", amount:0 } },
-    { id:"salt_crucifix",   name:"Salt Crucifix",       glyph:"✝",  kind:"armor",  description:"+2 defense while held.", rarity:2, effect:{ type:"defense_bonus", amount:2 } },
-    { id:"obsidian_blade",  name:"Obsidian Blade",      glyph:"⚔",  kind:"weapon", description:"+4 attack, pre-Columbian warranty.", rarity:3, effect:{ type:"attack_bonus", amount:4 } },
-    { id:"focus_incense",   name:"Copal Incense",       glyph:"🪔", kind:"focus",  description:"Restore 8 focus.", rarity:2, effect:{ type:"focus_change", amount:8 } },
-    { id:"emergency_ration",name:"Emergency Ration",    glyph:"🥫", kind:"food",   description:"Restore 40 hunger; tastes of regret.", rarity:1, effect:{ type:"hunger_change", amount:40 } }
+  items:[
+    { id:"altitude_tabs",    name:"Altitude Tablets",  glyph:"💊", kind:"food",   description:"Restore 25 hunger; slight euphoria.",         rarity:1, effect:{ type:"hunger_change", amount:25 } },
+    { id:"pisco_flask",      name:"Pisco Flask",        glyph:"🍶", kind:"potion", description:"Heal 10 HP; the saints disapprove.",          rarity:2, effect:{ type:"heal",          amount:10 } },
+    { id:"gate_key",         name:"Gate Key",           glyph:"🗝", kind:"key",    description:"Opens a locked catacomb door.",               rarity:2, effect:{ type:"add_key",        amount:1  } },
+    { id:"cargo_manifest",   name:"Cargo Manifest",     glyph:"📋", kind:"relic",  description:"Reveals the entire floor layout.",            rarity:3, effect:{ type:"reveal_map",     amount:0  } },
+    { id:"salt_crucifix",    name:"Salt Crucifix",      glyph:"✝",  kind:"armor",  description:"+2 defense while held.",                     rarity:2, effect:{ type:"defense_bonus",  amount:2  } },
+    { id:"obsidian_blade",   name:"Obsidian Blade",     glyph:"⚔",  kind:"weapon", description:"+4 attack, pre-Columbian warranty.",         rarity:3, effect:{ type:"attack_bonus",   amount:4  } },
+    { id:"focus_incense",    name:"Copal Incense",      glyph:"🪔", kind:"focus",  description:"Restore 8 focus.",                            rarity:2, effect:{ type:"focus_change",   amount:8  } },
+    { id:"emergency_ration", name:"Emergency Ration",   glyph:"🥫", kind:"food",   description:"Restore 40 hunger; tastes of regret.",        rarity:1, effect:{ type:"hunger_change", amount:40 } }
   ],
-  rooms: [
-    { title:"Baggage Claim Crypt",        description:"Uncollected luggage from flights that never arrived molders in niches." },
-    { title:"Colonial Transept",          description:"Gilt saints line the walls, their expressions suggesting upgrade eligibility." },
-    { title:"Huaca Antechamber",          description:"Stone faces peer from every surface. The air tastes of maize beer." },
-    { title:"Guano Processing Hall",      description:"Vast machinery, apparently active. The smell is industrial and spiritual." },
-    { title:"Monk Dormitory",             description:"Salt-crusted bunks. Personal effects include rosaries and departure boards." },
-    { title:"Departure Lounge Eternal",   description:"Comfortable chairs, all occupied by ghosts staring at blank screens." },
-    { title:"Deep Archive",               description:"Wax cylinders record confessions in seventeen colonial languages." },
-    { title:"Salt Flat Meditation Cell",  description:"A tiny room encrusted entirely in salt. Surprisingly peaceful." },
-    { title:"Inca Relay Station",         description:"Quipu knot-messages hang from the ceiling. Some are marked URGENT." },
-    { title:"The Pilot's Ossuary",        description:"Bones of pilots arranged by airline, seniority, and accumulated miles." }
+  rooms:[
+    { title:"Baggage Claim Crypt",       description:"Uncollected luggage from flights that never arrived molders in niches." },
+    { title:"Colonial Transept",         description:"Gilt saints line the walls, their expressions suggesting upgrade eligibility." },
+    { title:"Huaca Antechamber",         description:"Stone faces peer from every surface. The air tastes of maize beer." },
+    { title:"Guano Processing Hall",     description:"Vast machinery, apparently active. The smell is industrial and spiritual." },
+    { title:"Monk Dormitory",            description:"Salt-crusted bunks. Personal effects include rosaries and departure boards." },
+    { title:"Departure Lounge Eternal",  description:"Comfortable chairs, all occupied by ghosts staring at blank screens." },
+    { title:"Deep Archive",              description:"Wax cylinders record confessions in seventeen colonial languages." },
+    { title:"Salt Flat Meditation Cell", description:"A tiny room encrusted entirely in salt. Surprisingly peaceful." },
+    { title:"Inca Relay Station",        description:"Quipu knot-messages hang from the ceiling. Some are marked URGENT." },
+    { title:"The Pilot's Ossuary",       description:"Bones of pilots arranged by airline, seniority, and accumulated miles." }
   ],
-  events: [
-    { id:"saint_glares",    text:"A saint fixes you with a disapproving stare. The colonial faction grows wary.", effect:{ type:"reputation_change", amount:-1, faction:"colonial_saints" } },
-    { id:"bat_swarm",       text:"A guano bat swarm divebombs you for 3 damage!", effect:{ type:"damage", amount:3 } },
-    { id:"huaca_nods",      text:"An ancient idol inclines its head. The huacas are mollified.", effect:{ type:"reputation_change", amount:2, faction:"huacas" } },
-    { id:"ghost_delay",     text:"An airline ghost hands you a delay notification. You lose 2 hunger worrying about connections.", effect:{ type:"hunger_change", amount:-2 } },
-    { id:"salt_blessing",   text:"A monk blesses you with salt. Gain 5 HP.", effect:{ type:"heal", amount:5 } },
-    { id:"manifest_found",  text:"You find a torn cargo manifest. Gain 1 key.", effect:{ type:"add_key", amount:1 } },
-    { id:"syndicate_bribe", text:"A guano foreman tips you off. Guano Syndicate reputation improves.", effect:{ type:"reputation_change", amount:2, faction:"guano_syndicate" } },
-    { id:"altitude_surge",  text:"A wave of altitude-induced clarity restores 5 focus.", effect:{ type:"focus_change", amount:5 } }
+  events:[
+    { id:"saint_glares",    text:"A saint fixes you with a disapproving stare. Colonial reputation suffers.",         effect:{ type:"reputation_change", amount:-1, faction:"colonial_saints" } },
+    { id:"bat_swarm",       text:"A guano bat swarm divebombs you for 3 damage!",                                    effect:{ type:"damage",            amount:3  } },
+    { id:"huaca_nods",      text:"An ancient idol inclines its head. The huacas are mollified.",                     effect:{ type:"reputation_change", amount:2,  faction:"huacas"          } },
+    { id:"ghost_delay",     text:"An airline ghost hands you a delay notification. Hunger −2.",                      effect:{ type:"hunger_change",     amount:-2 } },
+    { id:"salt_blessing",   text:"A monk blesses you with salt. Gain 5 HP.",                                        effect:{ type:"heal",              amount:5  } },
+    { id:"manifest_found",  text:"You find a torn cargo manifest. Gain 1 key.",                                     effect:{ type:"add_key",           amount:1  } },
+    { id:"syndicate_bribe", text:"A guano foreman tips you off. Syndicate reputation improves.",                     effect:{ type:"reputation_change", amount:2,  faction:"guano_syndicate" } },
+    { id:"altitude_surge",  text:"Altitude-induced clarity restores 5 focus.",                                      effect:{ type:"focus_change",      amount:5  } }
   ],
-  hazards: [
-    { id:"guano_pool", name:"Guano Pool", glyph:"~", effect:{ type:"damage", amount:1 } },
+  hazards:[
+    { id:"guano_pool", name:"Guano Pool", glyph:"~", effect:{ type:"damage",        amount:1  } },
     { id:"salt_crust", name:"Salt Crust", glyph:":", effect:{ type:"hunger_change", amount:-3 } }
   ],
-  shrines: [
-    { id:"huaca_shrine",  name:"Huaca Shrine",  glyph:"⬟", effect:{ type:"heal", amount:8 } },
-    { id:"saint_altar",   name:"Saint Altar",   glyph:"✦", effect:{ type:"focus_change", amount:6 } }
+  shrines:[
+    { id:"huaca_shrine", name:"Huaca Shrine", glyph:"⬟", effect:{ type:"heal",         amount:8 } },
+    { id:"saint_altar",  name:"Saint Altar",  glyph:"✦", effect:{ type:"focus_change", amount:6 } }
   ],
-  quest_hooks: [
+  quest_hooks:[
     "The guano syndicate has misplaced a sacred cargo crate—whoever finds it controls the eastern tunnels.",
     "An airline ghost needs her carry-on delivered to the departure lounge. It weighs exactly as much as guilt.",
     "The huacas will trade safe passage for three salt crucifixes, no questions asked.",
     "A colonial saint is secretly allied with the syndicate. Proof is somewhere in the archive.",
     "The pilot's ossuary contains a flight manifest that could close a gate—if you can read it aloud in the right room."
   ],
-  endings: [
-    { id:"departures",  text:"You reach the surface gate just as a phantom Boeing cracks through the cloud layer. The boarding call is for you. You made it—sort of." },
-    { id:"becomes_huaca", text:"The stone in the walls has a quality. You stop moving. You stop needing to. Travelers will find you and leave small offerings, and you will be content." },
+  endings:[
+    { id:"departures",     text:"You reach the surface gate just as a phantom Boeing cracks through the cloud layer. The boarding call is for you. You made it—sort of." },
+    { id:"becomes_huaca",  text:"The stone in the walls has a quality. You stop moving. You stop needing to. Travelers will find you and leave small offerings, and you will be content." },
     { id:"syndicate_heir", text:"The guano foreman's ghost shakes your hand. You inherit the eastern tunnels, a fleet of spectral bats, and a cargo manifest that never empties." }
+  ]
+};
+
+// ════════════════════════════════════════════════════════════════
+//  EXAMPLE CARTRIDGE — The Patience Archives
+//  (A second built-in world to demonstrate the format)
+// ════════════════════════════════════════════════════════════════
+const EXAMPLE_CARTRIDGE = {
+  schema_version:"0.4", title:"The Patience Archives", genre:"bureaucratic afterlife",
+  premise:"You died with seventeen outstanding insurance claims. The Swiss Afterlife Sorting Office has your paperwork. It is incomplete. The clerks are not sympathetic. The exit visa may or may not exist.",
+  tone:["sardonic","melancholy","procedural","uncanny"],
+  laws_of_reality:[
+    "Every form requires a form to request the form.",
+    "The deceased are sorted alphabetically, then by cause of death, then by attitude.",
+    "Rubber stamps have weight here. Literal weight.",
+    "A clerk who loses their form tray loses their name."
+  ],
+  player:{ name:"The Claimant", max_hp:28, max_focus:10, attack:4, defense:2, hunger:70, glyph:"@" },
+  powers:[
+    { id:"appeal_process", name:"Appeal Process", cost:3, description:"File a formal appeal. The bureaucracy is briefly confused — reveals the floor.", effect:{ type:"reveal_map",    amount:0 } },
+    { id:"stress_response",name:"Stress Response",cost:5, description:"Panic efficiently. Heal 8 HP from sheer adrenaline.",                          effect:{ type:"heal",          amount:8 } },
+    { id:"form_c47",       name:"Form C-47",      cost:7, description:"A form that negates other forms. Gain +3 defense.",                            effect:{ type:"defense_bonus", amount:3 } }
+  ],
+  factions:[
+    { id:"actuarial_spirits", name:"Actuarial Spirits", reputation:0, agenda:"Calculate the precise moment of every registered soul's dissolution." },
+    { id:"claimant_union",    name:"Claimant Union",    reputation:0, agenda:"Demand processing within a geological epoch." },
+    { id:"form_clerks",       name:"Form Clerks",       reputation:0, agenda:"Maintain correct procedure at any cost to the living or dead." },
+    { id:"lost_documents",    name:"Lost Documents",    reputation:0, agenda:"Become whole again. Find the missing pages. All of them." }
+  ],
+  creatures:[
+    { id:"red_tape_golem",  name:"Red Tape Golem",        glyph:"⧖", hp:14, attack:5, defense:2, behavior:"guard",  tags:["construct"] },
+    { id:"actuarial_shade", name:"Actuarial Shade",        glyph:"∑", hp:8,  attack:4, defense:0, behavior:"chase",  tags:["undead"]    },
+    { id:"form_clerk",      name:"Indignant Clerk",        glyph:"Ψ", hp:10, attack:3, defense:3, behavior:"guard",  tags:["clerk"]     },
+    { id:"rubber_stamp",    name:"Animate Rubber Stamp",   glyph:"Ω", hp:6,  attack:6, defense:0, behavior:"chase",  tags:["construct"] },
+    { id:"lost_soul",       name:"Lost Claimant Soul",     glyph:"ψ", hp:5,  attack:2, defense:0, behavior:"patrol", tags:["ghost"]     },
+    { id:"dept_head",       name:"Department Head",        glyph:"Δ", hp:24, attack:9, defense:4, behavior:"guard",  tags:["boss"]      }
+  ],
+  items:[
+    { id:"provisional_pass",   name:"Provisional Pass",   glyph:"📄", kind:"key",    description:"Opens one administrative door.",                rarity:2, effect:{ type:"add_key",        amount:1  } },
+    { id:"stress_biscuit",     name:"Stress Biscuit",     glyph:"🍪", kind:"food",   description:"Issued in lieu of wages. Restores 30 hunger.",  rarity:1, effect:{ type:"hunger_change",  amount:30 } },
+    { id:"calming_tea",        name:"Calming Tea (Cold)", glyph:"🫖", kind:"potion", description:"Heals 8 HP.",                                   rarity:2, effect:{ type:"heal",           amount:8  } },
+    { id:"file_directory",     name:"Floor Directory",    glyph:"🗂", kind:"relic",  description:"Reveals the floor layout.",                     rarity:3, effect:{ type:"reveal_map",     amount:0  } },
+    { id:"complaint_form",     name:"Formal Complaint",   glyph:"📝", kind:"focus",  description:"Restores 7 focus through righteous indignation.",rarity:2, effect:{ type:"focus_change",   amount:7  } },
+    { id:"reinforced_case",    name:"Reinforced Briefcase",glyph:"💼",kind:"armor",  description:"+2 defense. Contains nothing relevant.",         rarity:2, effect:{ type:"defense_bonus",  amount:2  } },
+    { id:"rubber_mallet",      name:"Rubber Mallet",      glyph:"🔨", kind:"weapon", description:"+3 attack. For filing cabinet maintenance.",    rarity:2, effect:{ type:"attack_bonus",   amount:3  } },
+    { id:"emergency_provisions",name:"Emergency Provisions",glyph:"🥡",kind:"food", description:"Restores 45 hunger. From the Claimant Union.",   rarity:1, effect:{ type:"hunger_change",  amount:45 } }
+  ],
+  rooms:[
+    { title:"Intake Processing",       description:"A vast hall of numbered desks. All clerks refuse to make eye contact." },
+    { title:"Form Storage Vault C",    description:"Ceiling-high shelves of beige forms. Some rustle without wind." },
+    { title:"The Complaint Window",    description:"A window with a sign: 'Complaints submitted here are logged, filed, and dissolved.'" },
+    { title:"Actuarial Chamber 7",     description:"Walls covered in probability tables. The numbers change when you look away." },
+    { title:"Deceased Waiting Area",   description:"Plastic chairs bolted to the floor. A television plays a number that is never called." },
+    { title:"Dept. of Lost Documents", description:"Forms drift in gentle circles near the ceiling, searching for their files." },
+    { title:"The Supervisor's Anteroom",description:"A leather chair, a dead plant, and the motto: 'Procedure Is Mercy.'" },
+    { title:"Cafeteria (Closed)",      description:"The cafeteria is permanently closed. The vending machine accepts only the correct form." },
+    { title:"Archive Sub-Level",       description:"Files extend into the dark. Some are older than memory. One has your name." },
+    { title:"Exit Visa Office",        description:"The window is shuttered. A sign reads: See Form 14-B. Form 14-B has been discontinued." }
+  ],
+  events:[
+    { id:"form_misfiled",    text:"A clerk spots an error in your posture. The Form Clerks grow hostile.",      effect:{ type:"reputation_change", amount:-1, faction:"form_clerks"       } },
+    { id:"union_solidarity", text:"A lost soul nods in solidarity. The Claimant Union takes note.",             effect:{ type:"reputation_change", amount:2,  faction:"claimant_union"    } },
+    { id:"stamp_incident",   text:"A rogue rubber stamp finds your hand. 3 damage.",                           effect:{ type:"damage",            amount:3  } },
+    { id:"tea_trolley",      text:"A tea trolley appears briefly. You steal a biscuit. +20 hunger.",           effect:{ type:"hunger_change",     amount:20 } },
+    { id:"actuarial_clarity",text:"An actuarial shade calculates your remaining time. +4 focus from clarity.", effect:{ type:"focus_change",      amount:4  } },
+    { id:"form_approved",    text:"Form 7-C is briefly approved. Heal 5 HP from sheer relief.",               effect:{ type:"heal",              amount:5  } },
+    { id:"doc_found",        text:"A lost page from your claim drifts in. Gain a provisional key.",            effect:{ type:"add_key",           amount:1  } },
+    { id:"actuarial_error",  text:"An actuarial error works in your favor. Actuarial Spirits appeased.",       effect:{ type:"reputation_change", amount:1,  faction:"actuarial_spirits"  } }
+  ],
+  hazards:[
+    { id:"wet_floor",   name:"Wet Floor",         glyph:"≈", effect:{ type:"damage",        amount:1  } },
+    { id:"paper_slide", name:"Paper Avalanche",   glyph:"≡", effect:{ type:"hunger_change", amount:-4 } }
+  ],
+  shrines:[
+    { id:"union_board",      name:"Union Notice Board",          glyph:"◈", effect:{ type:"heal",         amount:7 } },
+    { id:"actuarial_altar",  name:"Actuarial Calculation Point", glyph:"◆", effect:{ type:"focus_change", amount:5 } }
+  ],
+  quest_hooks:[
+    "The Lost Documents faction holds your original claim form. Retrieve it and the exit visa appears automatically.",
+    "The Department Head has a master key on a lanyard around their neck.",
+    "The Actuarial Spirits will guarantee your survival calculations if you bring three complaint forms.",
+    "The Claimant Union is organizing a filing strike. They need one more signature: yours.",
+    "Somewhere in Vault C is a map of the Archive Sub-Level, misfiled under 'Miscellaneous Afterlives.'"
+  ],
+  endings:[
+    { id:"exit_visa",      text:"Form 14-B was never discontinued — it was reclassified. You find the reclassification notice in the Archive Sub-Level. The exit opens. You walk through, trailing the faint smell of toner." },
+    { id:"union_victory",  text:"The filing strike succeeds. In the chaos, you slip through an unmonitored corridor to the surface. The Claimant Union will remember your name, which is already fading." },
+    { id:"become_clerk",   text:"You stop trying to leave. You find a desk. Your name appears on a nameplate that was already there, waiting. The forms are almost soothing, if you don't think about what you're approving." }
   ]
 };
 
 // ════════════════════════════════════════════════════════════════
 //  MAP GENERATION
 // ════════════════════════════════════════════════════════════════
-function generateMap(rng, cartridge) {
+function generateMap(rng, cartridge, diff) {
   const W = GRID, H = GRID;
-  const grid = Array.from({ length: H }, () => new Array(W).fill(TILE.WALL));
-
+  const grid = Array.from({ length:H }, () => new Array(W).fill(TILE.WALL));
   const rooms = [];
-  const MAX_ROOMS = 7;
-  const MIN_SZ = 3, MAX_SZ = 5;
+  const MAX_ROOMS = 7, MIN_SZ = 3, MAX_SZ = 5;
 
   function carveRoom(x, y, w, h) {
-    for (let ry = y; ry < y + h; ry++)
-      for (let rx = x; rx < x + w; rx++)
-        grid[ry][rx] = TILE.FLOOR;
+    for (let ry = y; ry < y+h; ry++)
+      for (let rx = x; rx < x+w; rx++) grid[ry][rx] = TILE.FLOOR;
   }
   function carveCorridor(x1, y1, x2, y2) {
     let cx = x1, cy = y1;
-    while (cx !== x2) { grid[cy][cx] = TILE.FLOOR; cx += (x2 > cx) ? 1 : -1; }
-    while (cy !== y2) { grid[cy][cx] = TILE.FLOOR; cy += (y2 > cy) ? 1 : -1; }
+    while (cx !== x2) { grid[cy][cx] = TILE.FLOOR; cx += x2>cx ? 1:-1; }
+    while (cy !== y2) { grid[cy][cx] = TILE.FLOOR; cy += y2>cy ? 1:-1; }
   }
-  function rectOverlaps(a, b) {
-    return a.x < b.x+b.w+1 && a.x+a.w+1 > b.x &&
-           a.y < b.y+b.h+1 && a.y+a.h+1 > b.y;
+  function overlaps(a, b) {
+    return a.x < b.x+b.w+1 && a.x+a.w+1 > b.x && a.y < b.y+b.h+1 && a.y+a.h+1 > b.y;
   }
 
   for (let attempt = 0; attempt < 100 && rooms.length < MAX_ROOMS; attempt++) {
-    const rw = rng.range(MIN_SZ, MAX_SZ);
-    const rh = rng.range(MIN_SZ, MAX_SZ);
-    const rx = rng.range(1, W - rw - 1);
-    const ry = rng.range(1, H - rh - 1);
-    const r  = { x:rx, y:ry, w:rw, h:rh };
-    if (rooms.some(o => rectOverlaps(r, o))) continue;
+    const rw = rng.range(MIN_SZ, MAX_SZ), rh = rng.range(MIN_SZ, MAX_SZ);
+    const rx = rng.range(1, W-rw-1),      ry = rng.range(1, H-rh-1);
+    const r = { x:rx, y:ry, w:rw, h:rh };
+    if (rooms.some(o => overlaps(r, o))) continue;
     carveRoom(rx, ry, rw, rh);
     if (rooms.length > 0) {
-      const prev = rooms[rooms.length - 1];
-      const px = prev.x + Math.floor(prev.w/2);
-      const py = prev.y + Math.floor(prev.h/2);
-      const cx = rx + Math.floor(rw/2);
-      const cy = ry + Math.floor(rh/2);
-      // Randomly choose a door or plain corridor
+      const prev = rooms[rooms.length-1];
+      const px = prev.x + Math.floor(prev.w/2), py = prev.y + Math.floor(prev.h/2);
+      const cx = rx   + Math.floor(rw/2),       cy = ry   + Math.floor(rh/2);
       if (rng.int(3) === 0) {
         const midX = rng.int(2) ? cx : px;
         const midY = midX === cx ? py : cy;
@@ -694,68 +729,64 @@ function generateMap(rng, cartridge) {
       }
       carveCorridor(px, py, cx, cy);
     }
+    // Tag each room with a cartridge room index for inspect
+    r.cartRoomIdx = rng.int(Math.max(1, cartridge.rooms.length));
     rooms.push(r);
   }
 
-  // Place stairs in last room
-  const last = rooms[rooms.length - 1];
-  grid[last.y + 1][last.x + 1] = TILE.STAIRS_DOWN;
+  // Stairs in last room
+  const last = rooms[rooms.length-1];
+  grid[last.y+1][last.x+1] = TILE.STAIRS_DOWN;
 
-  // tileData[y][x] = index into cartridge.hazards or cartridge.shrines
-  const tileData = Array.from({ length: H }, () => new Array(W).fill(0));
+  // tileData[y][x] = index into hazards or shrines array
+  const tileData = Array.from({ length:H }, () => new Array(W).fill(0));
 
-  // Place hazards
+  // Hazards
+  const maxHazards = diff ? diff.hazardMaxCount : 1;
   if (cartridge.hazards.length > 0) {
     let placed = 0;
-    for (let attempt = 0; attempt < 200 && placed < 2; attempt++) {
-      const x = rng.range(1, W-2), y = rng.range(1, H-2);
+    for (let i = 0; i < 200 && placed < maxHazards; i++) {
+      const x = rng.range(1,W-2), y = rng.range(1,H-2);
       if (grid[y][x] === TILE.FLOOR) {
-        grid[y][x] = TILE.HAZARD;
-        tileData[y][x] = rng.int(cartridge.hazards.length);
-        placed++;
+        grid[y][x] = TILE.HAZARD; tileData[y][x] = rng.int(cartridge.hazards.length); placed++;
       }
     }
   }
 
-  // Place shrines
+  // Shrines
+  const maxShrines = diff ? diff.shrineCount : 2;
   if (cartridge.shrines.length > 0) {
     let placed = 0;
-    for (let attempt = 0; attempt < 200 && placed < cartridge.shrines.length && placed < 2; attempt++) {
-      const x = rng.range(1, W-2), y = rng.range(1, H-2);
+    for (let i = 0; i < 200 && placed < maxShrines; i++) {
+      const x = rng.range(1,W-2), y = rng.range(1,H-2);
       if (grid[y][x] === TILE.FLOOR) {
-        grid[y][x] = TILE.SHRINE;
-        tileData[y][x] = rng.int(cartridge.shrines.length);
-        placed++;
+        grid[y][x] = TILE.SHRINE; tileData[y][x] = rng.int(cartridge.shrines.length); placed++;
       }
     }
   }
 
-  // Player start: center of first room
   const first = rooms[0];
-  const playerStart = { x: first.x + Math.floor(first.w/2), y: first.y + Math.floor(first.h/2) };
-
+  const playerStart = { x: first.x+Math.floor(first.w/2), y: first.y+Math.floor(first.h/2) };
   return { grid, rooms, playerStart, tileData };
 }
 
 // ════════════════════════════════════════════════════════════════
-//  GAME STATE
+//  GAME STATE (closure)
 // ════════════════════════════════════════════════════════════════
 let G = {};
 (function buildG() {
 
-// ── State object ──────────────────────────────────────────────
-let state = null;     // active game state
-let cartridge = null; // loaded cartridge
+let state      = null;
+let cartridge  = null;
 
 // ── Helpers ───────────────────────────────────────────────────
 function log(text, cls='') {
   const el = document.getElementById('log');
   const line = document.createElement('div');
-  line.className = 'log-line' + (cls ? ' ' + cls : '');
+  line.className = 'log-line' + (cls ? ' '+cls : '');
   line.textContent = text;
   el.prepend(line);
-  // keep max 50 lines
-  while (el.children.length > 50) el.removeChild(el.lastChild);
+  while (el.children.length > 60) el.removeChild(el.lastChild);
 }
 
 function showModal(title, body, buttons) {
@@ -765,97 +796,77 @@ function showModal(title, body, buttons) {
   btns.innerHTML = '';
   buttons.forEach(b => {
     const btn = document.createElement('button');
-    btn.textContent = b.label;
-    btn.className   = b.cls || '';
-    btn.onclick     = () => { closeModal(); b.action(); };
+    btn.textContent = b.label; btn.className = b.cls||'';
+    btn.onclick = () => { closeModal(); b.action(); };
     btns.appendChild(btn);
   });
   document.getElementById('modal-overlay').classList.add('open');
 }
 function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
 
-// ── Apply effect to state ─────────────────────────────────────
+function getDifficulty() {
+  const key = state ? (state.difficulty || 'relaxed') : currentDifficulty;
+  return DIFFICULTY[key] || DIFFICULTY.relaxed;
+}
+
+// ── Apply effect ──────────────────────────────────────────────
 function applyEffect(effect, source) {
   if (!effect) return;
   const p = state.player;
   switch (effect.type) {
     case 'heal':
       p.hp = Math.min(p.max_hp, p.hp + (effect.amount||0));
-      log(`Healed ${effect.amount} HP.`, 'good');
-      break;
+      log(`Healed ${effect.amount} HP.`, 'good'); break;
     case 'damage':
       p.hp -= (effect.amount||0);
-      log(`Took ${effect.amount} damage from ${source||'unknown'}.`, 'danger');
-      break;
+      log(`Took ${effect.amount} damage from ${source||'unknown'}.`, 'danger'); break;
     case 'focus_change':
       p.focus = clamp(p.focus + (effect.amount||0), 0, p.max_focus);
-      log(`Focus ${effect.amount>=0?'+':''}${effect.amount}.`);
-      break;
+      log(`Focus ${effect.amount>=0?'+':''}${effect.amount}.`); break;
     case 'hunger_change':
       p.hunger = clamp(p.hunger + (effect.amount||0), 0, p.max_hunger);
       if (effect.amount < 0) log(`Hunger ${effect.amount}.`, 'danger');
-      else log(`Hunger +${effect.amount}.`, 'good');
-      break;
+      else log(`Hunger +${effect.amount}.`, 'good'); break;
     case 'add_key':
       p.keys += (effect.amount||1);
-      log(`Gained ${effect.amount||1} key(s).`, 'good');
-      break;
+      log(`Gained ${effect.amount||1} key(s).`, 'good'); break;
     case 'reveal_map':
-      state.fog = state.fog.map(row => row.map(() => false));
-      log('The map is revealed!', 'accent');
-      break;
+      state.fog = state.fog.map(row => row.map(()=>false));
+      log('The map is revealed!', 'accent'); break;
     case 'attack_bonus':
       p.attack_bonus = (p.attack_bonus||0) + (effect.amount||0);
-      log(`Attack +${effect.amount} (permanent this run).`, 'good');
-      break;
+      log(`Attack +${effect.amount}.`, 'good'); break;
     case 'defense_bonus':
       p.defense_bonus = (p.defense_bonus||0) + (effect.amount||0);
-      log(`Defense +${effect.amount} (permanent this run).`, 'good');
-      break;
+      log(`Defense +${effect.amount}.`, 'good'); break;
     case 'max_hp_bonus':
       p.max_hp += (effect.amount||0);
       p.hp = Math.min(p.max_hp, p.hp + (effect.amount||0));
-      log(`Max HP +${effect.amount}.`, 'good');
-      break;
+      log(`Max HP +${effect.amount}.`, 'good'); break;
     case 'max_focus_bonus':
       p.max_focus += (effect.amount||0);
-      log(`Max Focus +${effect.amount}.`, 'good');
-      break;
+      log(`Max Focus +${effect.amount}.`, 'good'); break;
     case 'reputation_change':
       if (effect.faction) {
-        const f = state.factions.find(f => f.id === effect.faction);
+        const f = state.factions.find(f=>f.id===effect.faction);
         if (f) {
-          f.reputation = clamp(f.reputation + (effect.amount||0), -100, 100);
+          f.reputation = clamp(f.reputation+(effect.amount||0), -100, 100);
           log(`${f.name} reputation ${effect.amount>=0?'+':''}${effect.amount}.`);
         }
-      }
-      break;
-    case 'teleport':
-      teleportPlayer();
-      break;
-    case 'cleanse':
-      log('Cleansed of ailments.', 'good');
-      break;
-    case 'light_change':
-      log('The light shifts.', 'accent');
-      break;
-    case 'summon':
-      log('Something stirs nearby…', 'accent');
-      spawnRandomMonster();
-      break;
+      } break;
+    case 'teleport':  teleportPlayer(); break;
+    case 'cleanse':   log('Cleansed.', 'good'); break;
+    case 'light_change': log('The light shifts.', 'accent'); break;
+    case 'summon':    log('Something stirs…', 'accent'); spawnRandomMonster(); break;
   }
 }
 
 function teleportPlayer() {
   const p = state.player;
   for (let i = 0; i < 200; i++) {
-    const x = state.rng.range(1, GRID-2);
-    const y = state.rng.range(1, GRID-2);
-    if (state.map[y][x] === TILE.FLOOR && !getMonsterAt(x,y)) {
-      p.x = x; p.y = y;
-      updateFog();
-      log('You are suddenly elsewhere.', 'accent');
-      return;
+    const x = state.rng.range(1,GRID-2), y = state.rng.range(1,GRID-2);
+    if (state.map[y][x]===TILE.FLOOR && !getMonsterAt(x,y)) {
+      p.x=x; p.y=y; updateFog(); log('You are suddenly elsewhere.', 'accent'); return;
     }
   }
 }
@@ -863,135 +874,160 @@ function teleportPlayer() {
 function spawnRandomMonster() {
   const tmpl = state.rng.pick(cartridge.creatures);
   for (let i = 0; i < 100; i++) {
-    const x = state.rng.range(1, GRID-2);
-    const y = state.rng.range(1, GRID-2);
-    if (state.map[y][x] === TILE.FLOOR && !getMonsterAt(x,y) &&
+    const x = state.rng.range(1,GRID-2), y = state.rng.range(1,GRID-2);
+    if (state.map[y][x]===TILE.FLOOR && !getMonsterAt(x,y) &&
         !(x===state.player.x && y===state.player.y)) {
-      state.monsters.push({ ...tmpl, hp: tmpl.hp, x, y, id: tmpl.id+'_'+Date.now() });
-      return;
+      state.monsters.push({ ...tmpl, hp:tmpl.hp, x, y }); return;
     }
   }
 }
 
 // ── Fog of war ────────────────────────────────────────────────
 function updateFog() {
-  const p = state.player;
-  const sight = 4;
-  for (let dy = -sight; dy <= sight; dy++) {
-    for (let dx = -sight; dx <= sight; dx++) {
-      const nx = p.x + dx, ny = p.y + dy;
-      if (nx < 0 || ny < 0 || nx >= GRID || ny >= GRID) continue;
-      if (Math.abs(dx) + Math.abs(dy) <= sight) {
-        state.fog[ny][nx]  = false;
-        state.seen[ny][nx] = true;
+  const p = state.player, sight = 4;
+  for (let dy=-sight; dy<=sight; dy++) {
+    for (let dx=-sight; dx<=sight; dx++) {
+      const nx=p.x+dx, ny=p.y+dy;
+      if (nx<0||ny<0||nx>=GRID||ny>=GRID) continue;
+      if (Math.abs(dx)+Math.abs(dy)<=sight) {
+        state.fog[ny][nx]=false; state.seen[ny][nx]=true;
       }
     }
   }
 }
 
-// ── Spawn entities ────────────────────────────────────────────
-function spawnEntities(rng, mapRooms) {
-  const monsters = [];
-  const items    = [];
-  const events   = [];
+// ── Discovery system ──────────────────────────────────────────
+// Build a pool of discovery texts from the loaded cartridge, then
+// pick from it to populate non-combat points of interest on each floor.
+function buildDiscovery(rng) {
+  const pool = [];
 
-  // Skip first room (player start), place entities in other rooms
+  for (const law of cartridge.laws_of_reality)
+    pool.push({ text:`Inscribed: "${law}"`, effect:{ type:'focus_change', amount:2 } });
+
+  for (const hook of cartridge.quest_hooks)
+    pool.push({ text:`A scrawled note: "${hook}"`, effect:null });
+
+  for (const f of cartridge.factions)
+    pool.push({ text:`Mark of ${f.name}. Their purpose: ${f.agenda.slice(0,70)}`, effect:{ type:'reputation_change', faction:f.id, amount:1 } });
+
+  for (const room of cartridge.rooms)
+    pool.push({ text:`[${room.title}] ${room.description}`, effect:null });
+
+  // Generic world-flavored finds with small rewards
+  pool.push({ text:'An abandoned camp, recently used. Something edible remains.',      effect:{ type:'hunger_change', amount:15 } });
+  pool.push({ text:'A crude map scratched into the floor. The layout becomes clearer.',effect:{ type:'reveal_map',    amount:0  } });
+  pool.push({ text:'A fragment of something medicinal. You feel slightly steadier.',   effect:{ type:'heal',          amount:3  } });
+  pool.push({ text:'A calming inscription. Focus slowly returns.',                     effect:{ type:'focus_change',  amount:3  } });
+
+  if (pool.length === 0) return null;
+  return rng.pick(pool);
+}
+
+function getDiscoveryAt(x, y) {
+  return state.discoveryMap && state.discoveryMap[`${x},${y}`];
+}
+
+// ── Entity helpers ────────────────────────────────────────────
+function getMonsterAt(x, y) { return state.monsters.find(m=>m.x===x&&m.y===y&&m.hp>0); }
+function getItemAt(x, y)    { return state.items.find(it=>it.x===x&&it.y===y); }
+
+// ── Spawn entities ────────────────────────────────────────────
+function spawnEntities(rng, mapRooms, diff) {
+  const monsters    = [];
+  const items       = [];
+  const discoveryMap = {};
+
   for (let ri = 1; ri < mapRooms.length; ri++) {
     const room = mapRooms[ri];
     const floorCells = [];
-    for (let ry = room.y; ry < room.y + room.h; ry++)
-      for (let rx = room.x; rx < room.x + room.w; rx++)
-        if (state.map[ry][rx] === TILE.FLOOR) floorCells.push({ x: rx, y: ry });
+    for (let ry=room.y; ry<room.y+room.h; ry++)
+      for (let rx=room.x; rx<room.x+room.w; rx++)
+        if (state.map[ry][rx]===TILE.FLOOR) floorCells.push({x:rx, y:ry});
     rng.shuffle(floorCells);
 
-    // 70% chance of monster per room
-    if (rng.int(10) < 7 && floorCells.length > 0) {
+    // Monster
+    if (rng.int(100) < Math.floor(diff.monsterChance*100) && floorCells.length > 0) {
       const tmpl = rng.pick(cartridge.creatures);
       const pos  = floorCells.pop();
-      monsters.push({ ...tmpl, hp: tmpl.hp, x: pos.x, y: pos.y });
+      monsters.push({ ...tmpl, hp:tmpl.hp, x:pos.x, y:pos.y });
     }
-    // 50% chance of item per room
-    if (rng.int(10) < 5 && floorCells.length > 0) {
+    // Item
+    if (rng.int(100) < Math.floor(diff.itemChance*100) && floorCells.length > 0) {
       const tmpl = rng.pick(cartridge.items);
       const pos  = floorCells.pop();
-      items.push({ ...tmpl, x: pos.x, y: pos.y });
+      items.push({ ...tmpl, x:pos.x, y:pos.y });
     }
-    // 30% chance of event trigger per room
-    if (rng.int(10) < 3 && cartridge.events.length > 0) {
-      const ev = rng.pick(cartridge.events);
-      events.push({ ...ev, roomIdx: ri });
+    // Discovery (non-combat point of interest)
+    if (rng.int(100) < Math.floor(diff.discoveryChance*100) && floorCells.length > 0) {
+      const disc = buildDiscovery(rng);
+      if (disc) {
+        const pos = floorCells.pop();
+        discoveryMap[`${pos.x},${pos.y}`] = disc;
+      }
     }
   }
-
-  return { monsters, items, events };
+  return { monsters, items, discoveryMap };
 }
 
-// ── Init a new run ─────────────────────────────────────────────
+// ── Init new run ──────────────────────────────────────────────
 function initRun(cart) {
   cartridge = cart;
+  const diff = DIFFICULTY[currentDifficulty] || DIFFICULTY.relaxed;
   const seed = Date.now() & 0xFFFFFFFF;
   const rng  = makePRNG(seed);
-  const { grid, rooms, playerStart, tileData } = generateMap(rng, cart);
+  const { grid, rooms, playerStart, tileData } = generateMap(rng, cart, diff);
 
   const cp = cart.player;
   const playerState = {
     x: playerStart.x, y: playerStart.y,
-    hp: cp.max_hp, max_hp: cp.max_hp,
-    focus: cp.max_focus, max_focus: cp.max_focus,
+    hp:       Math.floor(cp.max_hp    * diff.playerHpMultiplier),
+    max_hp:   Math.floor(cp.max_hp    * diff.playerHpMultiplier),
+    focus:    Math.floor(cp.max_focus * diff.playerFocusMultiplier),
+    max_focus:Math.floor(cp.max_focus * diff.playerFocusMultiplier),
     attack: cp.attack, defense: cp.defense,
     attack_bonus: 0, defense_bonus: 0,
     hunger: cp.hunger, max_hunger: cp.hunger,
-    keys: 0,
-    glyph: cp.glyph,
-    inventory: []
+    keys: 0, glyph: cp.glyph, inventory: []
   };
 
   state = {
-    seed,
-    depth: 1,
-    turn:  0,
+    seed, depth:1, turn:0,
+    difficulty: currentDifficulty,
     player: playerState,
-    map:      grid,
-    tileData,
-    rooms,
-    fog:   Array.from({ length: GRID }, () => new Array(GRID).fill(true)),
-    seen:  Array.from({ length: GRID }, () => new Array(GRID).fill(false)),
-    monsters: [],
-    items:    [],
-    pendingEvents: [],
-    factions: cart.factions.map(f => ({ ...f })),
+    map: grid, tileData, rooms,
+    fog:  Array.from({length:GRID}, ()=>new Array(GRID).fill(true)),
+    seen: Array.from({length:GRID}, ()=>new Array(GRID).fill(false)),
+    monsters:[], items:[], discoveryMap:{},
+    factions: cart.factions.map(f=>({...f})),
     usedShrines: new Set(),
-    gameOver: false,
-    rng
+    safetyNetUsed: false,
+    gameOver: false, rng
   };
 
-  const { monsters, items, events } = spawnEntities(rng, rooms);
-  state.monsters = monsters;
-  state.items    = items;
-  state.pendingEvents = events;
+  const { monsters, items, discoveryMap } = spawnEntities(rng, rooms, diff);
+  state.monsters     = monsters;
+  state.items        = items;
+  state.discoveryMap = discoveryMap;
 
-  updateFog();
-  render();
-  renderSidePanels();
+  updateFog(); render(); renderSidePanels();
 
   log(`Depth ${state.depth}. ${cart.premise}`, 'accent');
-  if (cart.quest_hooks && cart.quest_hooks.length > 0)
+  if (cart.quest_hooks.length > 0)
     log(`Rumor: "${rng.pick(cart.quest_hooks)}"`, 'important');
-}
 
-// ── Get entity helpers ────────────────────────────────────────
-function getMonsterAt(x, y) {
-  return state.monsters.find(m => m.x === x && m.y === y && m.hp > 0);
-}
-function getItemAt(x, y) {
-  return state.items.find(it => it.x === x && it.y === y);
+  // Welcome the player to the mode on first run
+  const modeName = currentDifficulty === 'relaxed'
+    ? 'Relaxed (forgiving, exploratory)'
+    : 'Classic (traditional roguelike)';
+  log(`Mode: ${modeName}. Use Inspect to read the room.`, 'muted');
 }
 
 // ── Combat ────────────────────────────────────────────────────
 function doAttack(attacker, defender) {
-  const atk = (attacker.attack || 1) + (attacker === state.player ? (state.player.attack_bonus||0) : 0);
-  const def = (defender.defense || 0) + (defender === state.player ? (state.player.defense_bonus||0) : 0);
-  const dmg = Math.max(1, atk - def + state.rng.range(-1, 1));
+  const atk = (attacker.attack||1) + (attacker===state.player ? (state.player.attack_bonus||0) : 0);
+  const def = (defender.defense||0) + (defender===state.player ? (state.player.defense_bonus||0) : 0);
+  const dmg = Math.max(1, atk - def + state.rng.range(-1,1));
   defender.hp -= dmg;
   return dmg;
 }
@@ -1001,63 +1037,58 @@ function monsterTurn() {
   const p = state.player;
   for (const m of state.monsters) {
     if (m.hp <= 0) continue;
-    const dx = p.x - m.x, dy = p.y - m.y;
-    const dist = Math.abs(dx) + Math.abs(dy);
-
-    if (dist === 1) {
-      // Adjacent: attack player
-      const dmg = doAttack(m, p);
+    const dx=p.x-m.x, dy=p.y-m.y;
+    const dist=Math.abs(dx)+Math.abs(dy);
+    if (dist===1) {
+      const dmg=doAttack(m,p);
       log(`${m.name} hits you for ${dmg}.`, 'danger');
-    } else if (dist <= 6) {
-      // Chase
-      const stepX = dx !== 0 ? Math.sign(dx) : 0;
-      const stepY = dy !== 0 ? Math.sign(dy) : 0;
-      // Try primary direction, then alternates
-      const moves = [];
-      if (stepX && stepY) moves.push([stepX,0],[0,stepY],[stepX,stepY]);
-      else if (stepX)     moves.push([stepX,0],[0,1],[0,-1]);
-      else                moves.push([0,stepY],[1,0],[-1,0]);
-
-      for (const [mx, my] of moves) {
-        const nx = m.x + mx, ny = m.y + my;
+    } else if (dist<=6) {
+      const stepX=dx!==0?Math.sign(dx):0, stepY=dy!==0?Math.sign(dy):0;
+      const moves=[];
+      if (stepX&&stepY) moves.push([stepX,0],[0,stepY],[stepX,stepY]);
+      else if (stepX)   moves.push([stepX,0],[0,1],[0,-1]);
+      else              moves.push([0,stepY],[1,0],[-1,0]);
+      for (const [mx,my] of moves) {
+        const nx=m.x+mx, ny=m.y+my;
         if (nx<0||ny<0||nx>=GRID||ny>=GRID) continue;
-        const t = state.map[ny][nx];
-        if (t === TILE.WALL || t === TILE.LOCKED_DOOR) continue;
-        if (getMonsterAt(nx, ny)) continue;
-        m.x = nx; m.y = ny;
-        break;
+        const t=state.map[ny][nx];
+        if (t===TILE.WALL||t===TILE.LOCKED_DOOR) continue;
+        if (getMonsterAt(nx,ny)) continue;
+        m.x=nx; m.y=ny; break;
       }
     }
   }
-  // Remove dead monsters
-  state.monsters = state.monsters.filter(m => m.hp > 0);
+  state.monsters = state.monsters.filter(m=>m.hp>0);
 }
 
-// ── Hunger tick ───────────────────────────────────────────────
+// ── Hunger ────────────────────────────────────────────────────
 function hungerTick() {
-  if (state.turn % 10 === 0) {
-    state.player.hunger--;
-    if (state.player.hunger <= 0) {
-      state.player.hunger = 0;
-      state.player.hp--;
-      log('Starving! HP -1.', 'danger');
-    } else if (state.player.hunger <= 10) {
-      log('You are very hungry.', 'danger');
-    }
+  const diff = getDifficulty();
+  if (state.turn % diff.hungerLossEveryTurns !== 0) return;
+  state.player.hunger--;
+  if (state.player.hunger <= 0) {
+    state.player.hunger = 0;
+    state.player.hp--;
+    log('Starving! HP −1.', 'danger');
+  } else if (state.player.hunger <= 10) {
+    log('You are desperately hungry.', 'danger');
+  } else if (state.player.hunger <= 20) {
+    log('You are getting hungry.', 'accent');
   }
 }
 
-// ── Check for random event ────────────────────────────────────
+// ── Random events ─────────────────────────────────────────────
 function maybeEvent() {
-  if (cartridge.events.length === 0) return;
-  if (state.rng.int(20) === 0) {
+  if (!cartridge.events.length) return;
+  const diff = getDifficulty();
+  if (state.rng.int(diff.eventChance) === 0) {
     const ev = state.rng.pick(cartridge.events);
     log(`» ${ev.text}`, 'important');
     if (ev.effect) applyEffect(ev.effect, 'event');
   }
 }
 
-// ── End of player turn ────────────────────────────────────────
+// ── End of turn ───────────────────────────────────────────────
 function endTurn() {
   if (state.gameOver) return;
   state.turn++;
@@ -1070,399 +1101,579 @@ function endTurn() {
   renderSidePanels();
 }
 
+// ── Death check with optional safety net ─────────────────────
 function checkDeath() {
-  if (state.player.hp <= 0 && !state.gameOver) {
-    state.gameOver = true;
-    const ending = state.rng.pick(cartridge.endings);
-    showModal('You have died', ending.text, [
-      { label:'New Run', cls:'primary', action: () => confirmNewRun() }
-    ]);
-    log('You have died.', 'danger');
+  if (state.player.hp > 0 || state.gameOver) return;
+  const diff = getDifficulty();
+
+  // Relaxed mode: once-per-run rescue
+  if (diff.deathSafetyNet && !state.safetyNetUsed) {
+    state.safetyNetUsed = true;
+    state.player.hp = Math.ceil(state.player.max_hp * 0.35);
+    state.player.focus = Math.max(0, state.player.focus - 3);
+    state.player.hunger = Math.max(0, state.player.hunger - 10);
+    log('Something in this place refuses to let your story end cleanly.', 'accent');
+    log('You wake nearby, injured but alive. The safety net is now spent.', 'danger');
+    return;
   }
+
+  state.gameOver = true;
+  const ending = state.rng.pick(cartridge.endings);
+  log('You have died.', 'danger');
+  showModal('You have died', ending.text, [
+    { label:'New Run', cls:'primary', action:() => G.newRun() }
+  ]);
 }
 
-// ── Player movement ────────────────────────────────────────────
+// ── Player movement ───────────────────────────────────────────
 G.move = function(dx, dy) {
   if (!state || state.gameOver) return;
-  const p  = state.player;
-  const nx = p.x + dx, ny = p.y + dy;
-  if (nx < 0 || ny < 0 || nx >= GRID || ny >= GRID) return;
+  const p = state.player;
+  const nx=p.x+dx, ny=p.y+dy;
+  if (nx<0||ny<0||nx>=GRID||ny>=GRID) return;
 
   const tile = state.map[ny][nx];
+  if (tile===TILE.WALL) { log('A wall blocks the way.'); return; }
 
-  // Wall
-  if (tile === TILE.WALL) { log('A wall blocks the way.'); return; }
-
-  // Locked door
-  if (tile === TILE.LOCKED_DOOR) {
-    if (p.keys > 0) {
-      p.keys--;
-      state.map[ny][nx] = TILE.DOOR;
-      log('You unlock the door.', 'good');
-    } else {
-      log('Locked. You need a key.', 'danger');
-      return;
-    }
+  if (tile===TILE.LOCKED_DOOR) {
+    if (p.keys > 0) { p.keys--; state.map[ny][nx]=TILE.DOOR; log('You unlock the door.','good'); }
+    else { log('Locked. You need a key.','danger'); return; }
   }
 
-  // Open door: just walk through
-  if (tile === TILE.DOOR) { /* passable */ }
-
-  // Monster in the way
-  const monster = getMonsterAt(nx, ny);
+  // Attack monster in the way
+  const monster = getMonsterAt(nx,ny);
   if (monster) {
-    const dmg = doAttack(p, monster);
+    const dmg=doAttack(p,monster);
     log(`You hit ${monster.name} for ${dmg}.`);
-    if (monster.hp <= 0) {
-      log(`${monster.name} is defeated!`, 'good');
-      state.monsters = state.monsters.filter(m => m !== monster);
+    if (monster.hp<=0) {
+      log(`${monster.name} is defeated!`,'good');
+      state.monsters=state.monsters.filter(m=>m!==monster);
     } else {
-      const rdmg = doAttack(monster, p);
-      log(`${monster.name} hits back for ${rdmg}.`, 'danger');
+      const rdmg=doAttack(monster,p);
+      log(`${monster.name} hits back for ${rdmg}.`,'danger');
     }
-    endTurn();
-    return;
+    endTurn(); return;
   }
 
   // Move
-  p.x = nx; p.y = ny;
+  p.x=nx; p.y=ny;
 
   // Pick up item
-  const item = getItemAt(nx, ny);
+  const item = getItemAt(nx,ny);
   if (item) {
-    state.items = state.items.filter(it => it !== item);
-    if (item.kind === 'key') {
+    state.items=state.items.filter(it=>it!==item);
+    if (item.kind==='key') {
       applyEffect(item.effect, item.name);
-      log(`You found: ${item.name}.`, 'good');
+      log(`Found: ${item.name}.`,'good');
     } else {
       p.inventory.push(item);
-      log(`Picked up: ${item.name}. (${item.description})`, 'good');
+      log(`Picked up: ${item.name}. (${item.description})`,'good');
     }
+  }
+
+  // Trigger discovery (non-combat point of interest)
+  const disc = getDiscoveryAt(nx,ny);
+  if (disc) {
+    delete state.discoveryMap[`${nx},${ny}`];
+    log(`» ${disc.text}`,'discovery');
+    if (disc.effect) applyEffect(disc.effect,'discovery');
   }
 
   // Hazard
-  if (tile === TILE.HAZARD && cartridge.hazards.length > 0) {
-    const hz = cartridge.hazards[state.tileData[ny][nx] % cartridge.hazards.length];
-    log(`You step on ${hz.name}!`, 'danger');
-    if (hz.effect) applyEffect(hz.effect, hz.name);
+  if (tile===TILE.HAZARD && cartridge.hazards.length) {
+    const hz=cartridge.hazards[state.tileData[ny][nx]%cartridge.hazards.length];
+    log(`You step on ${hz.name}!`,'danger');
+    if (hz.effect) applyEffect(hz.effect,hz.name);
   }
 
   // Shrine
-  if (tile === TILE.SHRINE) {
-    const key = `${nx},${ny}`;
-    if (!state.usedShrines.has(key) && cartridge.shrines.length > 0) {
-      const sh = cartridge.shrines[state.tileData[ny][nx] % cartridge.shrines.length];
-      log(`${sh.name} glows as you approach.`, 'accent');
-      if (sh.effect) applyEffect(sh.effect, sh.name);
+  if (tile===TILE.SHRINE) {
+    const key=`${nx},${ny}`;
+    if (!state.usedShrines.has(key) && cartridge.shrines.length) {
+      const sh=cartridge.shrines[state.tileData[ny][nx]%cartridge.shrines.length];
+      log(`${sh.name} glows as you approach.`,'accent');
+      if (sh.effect) applyEffect(sh.effect,sh.name);
       state.usedShrines.add(key);
-    } else {
-      log('The shrine is spent.', 'muted');
-    }
+    } else { log('The shrine is spent.','muted'); }
   }
 
-  // Stairs
-  if (tile === TILE.STAIRS_DOWN) {
-    nextFloor();
-    return;
+  // Stairs: prompt instead of auto-descend
+  if (tile===TILE.STAIRS_DOWN) {
+    log('You stand at the threshold. Tap Descend when ready.','accent');
+    endTurn(); return;
   }
 
   endTurn();
 };
 
 G.wait = function() {
-  if (!state || state.gameOver) return;
+  if (!state||state.gameOver) return;
   log('You wait.');
+  endTurn();
+};
+
+// ── Descend (called from Descend button) ──────────────────────
+G.descend = function() {
+  if (!state||state.gameOver) return;
+  if (state.map[state.player.y][state.player.x]!==TILE.STAIRS_DOWN) {
+    log('You are not on the stairs.'); return;
+  }
+  nextFloor();
+};
+
+// ── Retreat ───────────────────────────────────────────────────
+// Moves the player one tile away from the nearest monster.
+// If no adjacent tile is safer, performs an emergency blink.
+G.retreat = function() {
+  if (!state||state.gameOver) return;
+  const p    = state.player;
+  const diff = getDifficulty();
+
+  // Find nearest monster within aggro range
+  let nearest=null, nearDist=Infinity;
+  for (const m of state.monsters) {
+    const d=Math.abs(m.x-p.x)+Math.abs(m.y-p.y);
+    if (d<nearDist) { nearDist=d; nearest=m; }
+  }
+
+  if (!nearest||nearDist>8) { log('No immediate threat nearby.'); return; }
+
+  // Try to step to the adjacent tile that maximises distance from nearest
+  let bestTile=null, bestDist=nearDist;
+  for (const [ddx,ddy] of [[-1,0],[1,0],[0,-1],[0,1]]) {
+    const nx=p.x+ddx, ny=p.y+ddy;
+    if (nx<0||ny<0||nx>=GRID||ny>=GRID) continue;
+    const t=state.map[ny][nx];
+    if (t===TILE.WALL||t===TILE.LOCKED_DOOR) continue;
+    if (getMonsterAt(nx,ny)) continue;
+    const d=Math.abs(nearest.x-nx)+Math.abs(nearest.y-ny);
+    if (d>bestDist) { bestDist=d; bestTile={x:nx,y:ny}; }
+  }
+
+  if (bestTile) {
+    p.x=bestTile.x; p.y=bestTile.y;
+    log('You step back from danger.','good');
+  } else {
+    // Emergency blink — costs focus in Classic, free in Relaxed
+    if (diff.retreatFocusCost>0 && p.focus<diff.retreatFocusCost) {
+      log(`Trapped! Need ${diff.retreatFocusCost} focus to blink away.`,'danger');
+      return;
+    }
+    let found=false;
+    for (let i=0;i<100;i++) {
+      const tx=state.rng.range(1,GRID-2), ty=state.rng.range(1,GRID-2);
+      if (state.map[ty][tx]!==TILE.FLOOR) continue;
+      if (getMonsterAt(tx,ty)) continue;
+      if (Math.abs(nearest.x-tx)+Math.abs(nearest.y-ty)<3) continue;
+      p.x=tx; p.y=ty;
+      if (diff.retreatFocusCost>0) p.focus=Math.max(0,p.focus-diff.retreatFocusCost);
+      log(diff.retreatFocusCost>0
+        ? `No escape route — you blink away (−${diff.retreatFocusCost} focus).`
+        : 'No escape route — you blink to safety.','accent');
+      found=true; break;
+    }
+    if (!found) { log('Completely surrounded. No retreat possible.','danger'); return; }
+  }
   endTurn();
 };
 
 // ── Next floor ────────────────────────────────────────────────
 function nextFloor() {
   state.depth++;
-  log(`You descend to depth ${state.depth}.`, 'accent');
+  log(`You descend to depth ${state.depth}.`,'accent');
+
   if (state.depth > 10) {
-    // Win condition
     const ending = state.rng.pick(cartridge.endings);
     showModal('You Escaped!', ending.text, [
-      { label:'New Run', cls:'primary', action: () => confirmNewRun() }
+      { label:'New Run', cls:'primary', action:()=>G.confirmNewRun() }
     ]);
-    state.gameOver = true;
-    return;
+    state.gameOver = true; return;
   }
-  const { grid, rooms, playerStart, tileData } = generateMap(state.rng, cartridge);
-  state.map      = grid;
-  state.tileData = tileData;
-  state.rooms    = rooms;
-  state.fog   = Array.from({ length: GRID }, () => new Array(GRID).fill(true));
-  state.seen  = Array.from({ length: GRID }, () => new Array(GRID).fill(false));
-  state.player.x = playerStart.x;
-  state.player.y = playerStart.y;
 
-  const { monsters, items, events } = spawnEntities(state.rng, rooms);
-  state.monsters = monsters;
-  state.items    = items;
-  state.pendingEvents.push(...events);
+  const diff = getDifficulty();
+  const { grid, rooms, playerStart, tileData } = generateMap(state.rng, cartridge, diff);
+  state.map=grid; state.tileData=tileData; state.rooms=rooms;
+  state.fog  = Array.from({length:GRID},()=>new Array(GRID).fill(true));
+  state.seen = Array.from({length:GRID},()=>new Array(GRID).fill(false));
+  state.player.x=playerStart.x; state.player.y=playerStart.y;
+
+  const { monsters, items, discoveryMap } = spawnEntities(state.rng, rooms, diff);
+  state.monsters=monsters; state.items=items; state.discoveryMap=discoveryMap;
   state.usedShrines = new Set();
 
-  updateFog();
-  render();
-  renderSidePanels();
+  updateFog(); render(); renderSidePanels();
 
-  // Announce room name
   if (cartridge.rooms.length > 0) {
-    const roomName = state.rng.pick(cartridge.rooms);
-    log(`Floor: "${roomName.title}" — ${roomName.description}`, 'accent');
+    const cr = state.rng.pick(cartridge.rooms);
+    log(`Floor: "${cr.title}" — ${cr.description}`,'accent');
   }
 }
 
-// ── Use item ──────────────────────────────────────────────────
+// ── Use Item ──────────────────────────────────────────────────
 G.useItem = function() {
-  if (!state || state.gameOver) return;
-  const inv = state.player.inventory;
-  if (inv.length === 0) { log('You carry nothing.'); return; }
-
-  const listHtml = inv.map((it, i) =>
+  if (!state||state.gameOver) return;
+  const inv=state.player.inventory;
+  if (!inv.length) { log('You carry nothing.'); return; }
+  const html=inv.map((it,i)=>
     `<div class="inv-item" onclick="G._useItemIdx(${i})" style="cursor:pointer">
       <span class="inv-glyph">${it.glyph}</span>
-      <span class="inv-name">${it.name}</span>
-      <span class="inv-kind">${it.kind}</span>
-    </div>`
-  ).join('');
-
-  showModal('Use Item', ' ', [{ label:'Cancel', action:()=>{} }]);
-  document.getElementById('modal-body').innerHTML = listHtml;
+      <div style="flex:1"><div class="inv-name">${it.name}</div><div class="inv-kind">${it.description||it.kind}</div></div>
+    </div>`).join('');
+  showModal('Use Item',' ',[{label:'Cancel',action:()=>{}}]);
+  document.getElementById('modal-body').innerHTML=html;
 };
 
 G._useItemIdx = function(i) {
-  closeModal();
-  if (!state) return;
-  const inv = state.player.inventory;
-  if (i >= inv.length) return;
-  const item = inv.splice(i, 1)[0];
-  log(`You use: ${item.name}.`, 'good');
-  if (item.effect) applyEffect(item.effect, item.name);
+  closeModal(); if (!state) return;
+  const item=state.player.inventory.splice(i,1)[0];
+  if (!item) return;
+  log(`You use: ${item.name}.`,'good');
+  if (item.effect) applyEffect(item.effect,item.name);
   endTurn();
 };
 
-// ── Use power ─────────────────────────────────────────────────
+// ── Use Power ─────────────────────────────────────────────────
 G.usePower = function() {
-  if (!state || state.gameOver) return;
-  if (cartridge.powers.length === 0) { log('No powers available.'); return; }
-
-  const listHtml = cartridge.powers.map((pw, i) =>
+  if (!state||state.gameOver) return;
+  if (!cartridge.powers.length) { log('No powers available.'); return; }
+  const html=cartridge.powers.map((pw,i)=>
     `<div class="power-btn" onclick="G._usePowerIdx(${i})" style="cursor:pointer;border:1px solid var(--border);border-radius:4px;margin:4px 0">
-      <span>${pw.name}</span>
-      <span class="power-cost">${pw.cost} FCS</span>
-    </div>`
-  ).join('');
-
-  showModal('Use Power', ' ', [{ label:'Cancel', action:()=>{} }]);
-  document.getElementById('modal-body').innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Focus: ${state.player.focus}/${state.player.max_focus}</div>${listHtml}`;
+      <span>${pw.name}</span><span class="power-cost">${pw.cost} FCS</span>
+    </div>`).join('');
+  showModal('Use Power',' ',[{label:'Cancel',action:()=>{}}]);
+  document.getElementById('modal-body').innerHTML=
+    `<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Focus: ${state.player.focus}/${state.player.max_focus}</div>${html}`;
 };
 
 G._usePowerIdx = function(i) {
-  closeModal();
-  if (!state) return;
-  const pw = cartridge.powers[i];
-  if (!pw) return;
-  if (state.player.focus < pw.cost) { log(`Not enough focus for ${pw.name}.`, 'danger'); return; }
-  state.player.focus -= pw.cost;
-  log(`You use ${pw.name}. ${pw.description}`, 'accent');
-  if (pw.effect) applyEffect(pw.effect, pw.name);
+  closeModal(); if (!state) return;
+  const pw=cartridge.powers[i]; if (!pw) return;
+  if (state.player.focus<pw.cost) { log(`Not enough focus for ${pw.name}.`,'danger'); return; }
+  state.player.focus-=pw.cost;
+  log(`${pw.name}: ${pw.description}`,'accent');
+  if (pw.effect) applyEffect(pw.effect,pw.name);
   endTurn();
 };
 
-// ── Inspect ───────────────────────────────────────────────────
+// ── Inspect (room-aware, useful summary) ──────────────────────
 G.inspect = function() {
   if (!state) return;
   const p = state.player;
-  const tile = state.map[p.y][p.x];
-  const tileNames = ['Wall','Floor','Door','Locked Door','Stairs Down','Hazard','Shrine'];
-  const nearby = [];
-  for (let dy = -1; dy <= 1; dy++)
-    for (let dx = -1; dx <= 1; dx++) {
-      const m = getMonsterAt(p.x+dx, p.y+dy);
-      if (m) nearby.push(`${m.name} (HP ${m.hp})`);
-      const it = getItemAt(p.x+dx, p.y+dy);
-      if (it) nearby.push(`${it.name} [${it.kind}]`);
-    }
-  let msg = `Depth ${state.depth} | Turn ${state.turn} | Standing on: ${tileNames[tile]||'?'}`;
-  if (nearby.length) msg += `\nNearby: ${nearby.join(', ')}`;
-  log(msg, 'important');
+
+  // Find which mapped room the player is in
+  const currentRoom = state.rooms.find(r =>
+    p.x>=r.x && p.x<r.x+r.w && p.y>=r.y && p.y<r.y+r.h
+  );
+  if (currentRoom && cartridge.rooms.length > 0) {
+    const cr = cartridge.rooms[currentRoom.cartRoomIdx||0];
+    log(`[${cr.title}] ${cr.description}`,'accent');
+  } else {
+    log('You are in a corridor.','important');
+  }
+
+  // Standing on something notable
+  const tile=state.map[p.y][p.x];
+  const notable={[TILE.STAIRS_DOWN]:'stairs (▼ Descend available)',[TILE.HAZARD]:'hazard',[TILE.SHRINE]:'shrine',[TILE.DOOR]:'doorway',[TILE.LOCKED_DOOR]:'locked door'};
+  if (notable[tile]) log(`Standing on: ${notable[tile]}.`,'important');
+
+  // Visible threats
+  const threats=[];
+  for (let dy=-2;dy<=2;dy++) for (let dx=-2;dx<=2;dx++) {
+    if (!dx&&!dy) continue;
+    const nx=p.x+dx, ny=p.y+dy;
+    if (nx<0||ny<0||nx>=GRID||ny>=GRID) continue;
+    if (state.fog[ny][nx]) continue;
+    const m=getMonsterAt(nx,ny);
+    if (m) threats.push(`${m.name} HP ${m.hp}`);
+  }
+  if (threats.length) log('Threats: '+threats.join(', '),'danger');
+
+  // Visible items and discoveries
+  const finds=[];
+  for (let dy=-2;dy<=2;dy++) for (let dx=-2;dx<=2;dx++) {
+    const nx=p.x+dx, ny=p.y+dy;
+    if (nx<0||ny<0||nx>=GRID||ny>=GRID) continue;
+    if (state.fog[ny][nx]) continue;
+    const it=getItemAt(nx,ny);   if (it) finds.push(`${it.name} [${it.kind}]`);
+    const d=getDiscoveryAt(nx,ny); if (d) finds.push('? discovery');
+  }
+  if (finds.length) log('Visible: '+finds.join(', '),'good');
+
+  // Nearby features (slightly wider scan)
+  const features=new Set();
+  for (let dy=-3;dy<=3;dy++) for (let dx=-3;dx<=3;dx++) {
+    const nx=p.x+dx, ny=p.y+dy;
+    if (nx<0||ny<0||nx>=GRID||ny>=GRID) continue;
+    if (state.fog[ny][nx]) continue;
+    const t=state.map[ny][nx];
+    if (t===TILE.STAIRS_DOWN)  features.add('stairs (>)');
+    if (t===TILE.SHRINE)       features.add('shrine');
+    if (t===TILE.HAZARD)       features.add('hazard');
+    if (t===TILE.LOCKED_DOOR)  features.add('locked door');
+  }
+  if (features.size) log('Nearby: '+[...features].join(', '),'important');
+
+  // A law of reality or faction note
+  if (cartridge.laws_of_reality.length && state.rng.int(2)===0) {
+    log(`Law: "${state.rng.pick(cartridge.laws_of_reality)}"`,'muted');
+  } else if (state.factions.length) {
+    const top=[...state.factions].sort((a,b)=>Math.abs(b.reputation)-Math.abs(a.reputation))[0];
+    if (Math.abs(top.reputation)>2)
+      log(`${top.name} (rep ${top.reputation>0?'+':''}${top.reputation}): ${top.agenda}`,'muted');
+  }
+
+  log(`Turn ${state.turn} · Depth ${state.depth}`,'muted');
+};
+
+// ── Difficulty toggle ─────────────────────────────────────────
+G.setDifficulty = function(mode) {
+  if (!DIFFICULTY[mode]) return;
+  currentDifficulty=mode;
+  document.getElementById('mode-relaxed').classList.toggle('active', mode==='relaxed');
+  document.getElementById('mode-classic').classList.toggle('active', mode==='classic');
+  log(`Mode set to ${mode}. Takes effect on next New Run.`,'muted');
 };
 
 // ── Save / Load ───────────────────────────────────────────────
 G.saveGame = function() {
   if (!state) { log('Nothing to save.'); return; }
   try {
-    const save = {
-      cartridge,
-      state: {
-        ...state,
-        rng: null,        // can't serialise RNG
-        usedShrines: [...state.usedShrines]
-      }
-    };
+    const save={cartridge, state:{...state, rng:null, usedShrines:[...state.usedShrines]}};
     localStorage.setItem('rogue_llm_save', JSON.stringify(save));
-    log('Game saved.', 'good');
-  } catch(e) {
-    log('Save failed: ' + e.message, 'danger');
-    Debug.log('Save error: ' + e);
-  }
+    log('Game saved.','good');
+  } catch(e) { log('Save failed: '+e.message,'danger'); Debug.log('Save: '+e); }
 };
 
 G.loadGame = function() {
   try {
-    const raw = localStorage.getItem('rogue_llm_save');
+    const raw=localStorage.getItem('rogue_llm_save');
     if (!raw) { log('No save found.'); return; }
-    const save = JSON.parse(raw);
-    cartridge = save.cartridge;
-    state = save.state;
-    state.rng = makePRNG(state.seed ^ state.turn);
-    state.usedShrines = new Set(state.usedShrines || []);
-    updateFog();
-    render();
-    renderSidePanels();
-    log('Game loaded.', 'good');
-  } catch(e) {
-    log('Load failed: ' + e.message, 'danger');
-    Debug.log('Load error: ' + e);
-  }
+    const save=JSON.parse(raw);
+    cartridge=save.cartridge; state=save.state;
+    // Restore fields that may be missing in older saves
+    state.rng          = makePRNG(state.seed ^ state.turn);
+    state.usedShrines  = new Set(state.usedShrines||[]);
+    state.discoveryMap = state.discoveryMap||{};
+    state.safetyNetUsed= state.safetyNetUsed||false;
+    state.difficulty   = state.difficulty||'relaxed';
+    currentDifficulty  = state.difficulty;
+    G.setDifficulty(currentDifficulty);
+    updateFog(); render(); renderSidePanels();
+    log('Game loaded.','good');
+  } catch(e) { log('Load failed: '+e.message,'danger'); Debug.log('Load: '+e); }
 };
 
 // ── New Run ───────────────────────────────────────────────────
 G.newRun = function() {
-  if (!cartridge) {
-    cartridge = validateCartridge(DEFAULT_CARTRIDGE);
-  }
+  if (!cartridge) cartridge=validateCartridge(DEFAULT_CARTRIDGE);
   initRun(cartridge);
 };
 
 G.confirmNewRun = function() {
-  if (!state || state.gameOver) { G.newRun(); return; }
-  showModal('Start New Run?', 'Your current progress will be lost.', [
-    { label:'Yes, new run', cls:'danger', action: G.newRun },
-    { label:'Cancel', action: ()=>{} }
+  if (!state||state.gameOver) { G.newRun(); return; }
+  showModal('Start New Run?','Your current progress will be lost.',[
+    { label:'Yes, new run', cls:'danger', action:G.newRun },
+    { label:'Cancel', action:()=>{} }
   ]);
 };
 
 // ── Cartridge import/export ───────────────────────────────────
 G.exportCartridge = function() {
   if (!cartridge) { log('No cartridge loaded.'); return; }
-  document.getElementById('cartridge-json').value = JSON.stringify(cartridge, null, 2);
-  togglePanel('cart-panel', true);
-  log('Cartridge exported to text area.', 'good');
+  document.getElementById('cartridge-json').value=JSON.stringify(cartridge,null,2);
+  togglePanel('cart-panel',true);
+  log('Cartridge exported to text area.','good');
 };
 
 G.importCartridgePrompt = function() {
-  const raw = document.getElementById('cartridge-json').value.trim();
+  const raw=document.getElementById('cartridge-json').value.trim();
   if (!raw) { log('Paste JSON into the cartridge field first.'); return; }
   try {
-    const cart = validateCartridge(raw);
-    cartridge = cart;
-    document.getElementById('game-title').textContent = cart.title.toUpperCase();
-    document.getElementById('premise-text').textContent = cart.premise;
-    log(`Cartridge loaded: "${cart.title}"`, 'accent');
-    showModal('Cartridge Imported', `"${cart.title}" is ready. Start a new run?`, [
-      { label:'New Run', cls:'primary', action: G.newRun },
+    cartridge=validateCartridge(raw);
+    document.getElementById('game-title').textContent=cartridge.title.toUpperCase();
+    document.getElementById('premise-text').textContent=cartridge.premise;
+    log(`Cartridge loaded: "${cartridge.title}"`,'accent');
+    showModal('Cartridge Imported',`"${cartridge.title}" is ready. Start a new run?`,[
+      { label:'New Run', cls:'primary', action:G.newRun },
       { label:'Later', action:()=>{} }
     ]);
   } catch(e) {
-    log('Import failed: ' + e.message, 'danger');
-    Debug.log('Cartridge error: ' + e.message);
-    showModal('Import Error', e.message, [{ label:'OK', action:()=>{} }]);
+    log('Import failed: '+e.message,'danger'); Debug.log('Cart error: '+e.message);
+    showModal('Import Error',e.message,[{label:'OK',action:()=>{}}]);
   }
 };
 
 G.loadDefaultCartridge = function() {
   try {
-    cartridge = validateCartridge(DEFAULT_CARTRIDGE);
-    document.getElementById('game-title').textContent = cartridge.title.toUpperCase();
-    document.getElementById('premise-text').textContent = cartridge.premise;
-    log(`Default cartridge: "${cartridge.title}"`, 'accent');
-  } catch(e) {
-    Debug.log('Default cartridge error: ' + e.message);
-  }
+    cartridge=validateCartridge(DEFAULT_CARTRIDGE);
+    document.getElementById('game-title').textContent=cartridge.title.toUpperCase();
+    document.getElementById('premise-text').textContent=cartridge.premise;
+    log(`Default cartridge: "${cartridge.title}"`,'accent');
+  } catch(e) { Debug.log('Default cart: '+e.message); }
 };
 
-// ── LLM prompt ────────────────────────────────────────────────
-G.copyPrompt = function() {
-  const ta = document.getElementById('llm-prompt');
-  ta.select();
+G.loadExampleCartridge = function() {
   try {
-    document.execCommand('copy');
-    log('Prompt copied to clipboard.', 'good');
-  } catch(e) {
-    log('Copy failed — select text manually.', 'danger');
-  }
+    cartridge=validateCartridge(EXAMPLE_CARTRIDGE);
+    document.getElementById('game-title').textContent=cartridge.title.toUpperCase();
+    document.getElementById('premise-text').textContent=cartridge.premise;
+    log(`Example cartridge: "${cartridge.title}"`,'accent');
+    showModal('Example Cartridge',`"${cartridge.title}" loaded. This illustrates the JSON format — open World Cartridge panel to export and study it. Start a new run?`,[
+      { label:'New Run', cls:'primary', action:G.newRun },
+      { label:'See JSON', action:G.exportCartridge }
+    ]);
+  } catch(e) { Debug.log('Example cart: '+e.message); }
 };
+
+// ── LLM prompt builder ────────────────────────────────────────
+G.buildPromptFromTheme = function() {
+  const theme=document.getElementById('theme-input').value.trim();
+  const prompt=buildLLMPrompt(theme);
+  document.getElementById('llm-prompt').value=prompt;
+  log('Prompt built. Tap Copy Prompt.','good');
+  togglePanel('llm-panel',true);
+};
+
+G.copyPrompt = function() {
+  const ta=document.getElementById('llm-prompt');
+  if (!ta.value.trim()) { log('Click Build Prompt first.','danger'); return; }
+  ta.select();
+  try { document.execCommand('copy'); log('Prompt copied to clipboard.','good'); }
+  catch(e) { log('Copy failed — select text manually.','danger'); }
+};
+
+function buildLLMPrompt(theme) {
+  const themeSection = theme
+    ? `THEME / SCENARIO:\n${theme}\n\nBuild a world cartridge around this theme. Be specific and strange.`
+    : `THEME / SCENARIO:\nYour choice. Be creative and specific. Avoid generic fantasy.\nExamples: "deep-sea corporate espionage", "1920s circus ghosts", "bureaucratic afterlife",\n"Antarctic mycology horror", "Meiji-era spirit detective", "sentient library uprising".`;
+
+  return `You are a world cartridge generator for a mobile roguelike called Rogue LLM.
+
+Return ONLY valid JSON. No markdown. No explanation. No code blocks. Just the JSON object.
+
+${themeSection}
+
+SCHEMA (follow exactly):
+{
+  "schema_version": "0.4",
+  "title": "string",
+  "genre": "string",
+  "premise": "string (1-2 vivid sentences)",
+  "tone": ["string"],
+  "laws_of_reality": ["string — weird specific rules of this world, 3-5 items"],
+  "player": { "name":"string","max_hp":30,"max_focus":12,"attack":5,"defense":1,"hunger":80,"glyph":"@" },
+  "powers": [{ "id":"snake_case","name":"string","cost":4,"description":"string","effect":{"type":"...","amount":0} }],
+  "factions": [{ "id":"snake_case","name":"string","reputation":0,"agenda":"string" }],
+  "creatures": [{ "id":"snake_case","name":"string","glyph":"single char","hp":8,"attack":3,"defense":0,"behavior":"chase|guard|patrol","tags":["string"] }],
+  "items": [{ "id":"snake_case","name":"string","glyph":"single char","kind":"key|food|potion|relic|weapon|armor|focus","description":"string","rarity":1,"effect":{"type":"...","amount":0} }],
+  "rooms": [{ "title":"string","description":"string (1-2 evocative sentences)" }],
+  "events": [{ "id":"snake_case","text":"string","effect":{"type":"...","amount":0,"faction":"snake_case"} }],
+  "hazards": [{ "id":"snake_case","name":"string","glyph":"single char","effect":{"type":"damage","amount":1} }],
+  "shrines": [{ "id":"snake_case","name":"string","glyph":"single char","effect":{"type":"heal","amount":6} }],
+  "quest_hooks": ["string — specific, weird, actionable"],
+  "endings": [{ "id":"snake_case","text":"string — 2-3 sentences specific to this world" }]
+}
+
+LEGAL EFFECT TYPES (ONLY these, no others):
+heal, damage, focus_change, hunger_change, add_key, reveal_map,
+attack_bonus, defense_bonus, max_hp_bonus, max_focus_bonus,
+reputation_change, summon, teleport, cleanse, light_change
+
+BALANCE — keep it gentle and exploratory:
+- player max_hp: 25-40, attack: 4-8, defense: 1-3, hunger: 70-100
+- creatures: hp 4-20, attack 2-8, defense 0-4 (keep early creatures weak)
+- At least half of items should be food, potion, or focus kinds
+- At least 3 events should be positive (heal, focus+, hunger+, reputation+)
+- Damage events: max 4. Hazard damage: 1-2. Shrine effects: heal 6-12 or focus 4-8
+
+MINIMUM CONTENT:
+4 factions, 6 creatures, 8 items, 10 rooms, 8 events, 2 hazards, 2 shrines,
+3 powers, 5 quest_hooks, 3 endings
+
+STYLE:
+- Room descriptions: evocative, make the player want to explore
+- Laws of reality: strange, specific, consistent
+- Quest hooks: feel achievable in a dungeon crawl, reference specific factions/creatures
+- Endings: 1 triumphant, 1 ambiguous, 1 strange-but-okay
+- IDs: snake_case only
+- Return JSON only — nothing before or after the opening brace`;
+}
 
 // ── Toggle panel ──────────────────────────────────────────────
 window.togglePanel = function(id, forceOpen) {
-  const body = document.getElementById(id).querySelector('.panel-body');
+  const body=document.getElementById(id)?.querySelector('.panel-body');
   if (!body) return;
-  if (forceOpen) { body.classList.add('open'); return; }
-  body.classList.toggle('open');
+  if (forceOpen) body.classList.add('open');
+  else           body.classList.toggle('open');
 };
 
 // ── Render ────────────────────────────────────────────────────
 function render() {
   if (!state) return;
-  const p = state.player;
+  const p=state.player;
 
   // Stats
   document.getElementById('s-hp').textContent    = `${p.hp}/${p.max_hp}`;
   document.getElementById('s-fp').textContent    = `${p.focus}/${p.max_focus}`;
   document.getElementById('s-hng').textContent   = p.hunger;
-  document.getElementById('s-atk').textContent   = p.attack + (p.attack_bonus||0);
-  document.getElementById('s-def').textContent   = p.defense + (p.defense_bonus||0);
+  document.getElementById('s-atk').textContent   = p.attack+(p.attack_bonus||0);
+  document.getElementById('s-def').textContent   = p.defense+(p.defense_bonus||0);
   document.getElementById('s-keys').textContent  = p.keys;
   document.getElementById('s-depth').textContent = state.depth;
 
-  // Map
-  const canvas = document.getElementById('map-canvas');
-  canvas.style.gridTemplateColumns = `repeat(${GRID}, var(--cell))`;
-  canvas.innerHTML = '';
+  // Stair banner
+  const onStairs = state.map[p.y][p.x]===TILE.STAIRS_DOWN;
+  document.getElementById('stair-banner').style.display = onStairs ? 'block' : 'none';
 
-  const tileGlyph = { [TILE.WALL]:'#', [TILE.FLOOR]:'.', [TILE.DOOR]:'+',
-    [TILE.LOCKED_DOOR]:'⚿', [TILE.STAIRS_DOWN]:'>', [TILE.HAZARD]:'', [TILE.SHRINE]:'' };
-  const tileCls   = { [TILE.WALL]:'wall', [TILE.FLOOR]:'floor', [TILE.DOOR]:'door',
-    [TILE.LOCKED_DOOR]:'door', [TILE.STAIRS_DOWN]:'stairs', [TILE.HAZARD]:'hazard', [TILE.SHRINE]:'shrine' };
+  // Mode badge
+  const badge=document.getElementById('mode-badge');
+  const diffKey=state.difficulty||'relaxed';
+  badge.textContent=diffKey.toUpperCase();
+  badge.className='';
+  badge.classList.add(diffKey);
 
-  for (let y = 0; y < GRID; y++) {
-    for (let x = 0; x < GRID; x++) {
-      const cell = document.createElement('div');
-      cell.className = 'cell';
+  // Map grid
+  const canvas=document.getElementById('map-canvas');
+  canvas.style.gridTemplateColumns=`repeat(${GRID},var(--cell))`;
+  canvas.innerHTML='';
 
-      if (state.fog[y][x] && !state.seen[y][x]) {
-        cell.classList.add('cell-dark');
-        canvas.appendChild(cell);
-        continue;
+  const tileGlyph={[TILE.WALL]:'#',[TILE.FLOOR]:'.',[TILE.DOOR]:'+',[TILE.LOCKED_DOOR]:'⚿',[TILE.STAIRS_DOWN]:'>',[TILE.HAZARD]:'',[TILE.SHRINE]:''};
+  const tileCls  ={[TILE.WALL]:'wall',[TILE.FLOOR]:'floor',[TILE.DOOR]:'door',[TILE.LOCKED_DOOR]:'door',[TILE.STAIRS_DOWN]:'stairs',[TILE.HAZARD]:'hazard',[TILE.SHRINE]:'shrine'};
+
+  for (let y=0;y<GRID;y++) {
+    for (let x=0;x<GRID;x++) {
+      const cell=document.createElement('div');
+      cell.className='cell';
+
+      if (state.fog[y][x]&&!state.seen[y][x]) {
+        cell.classList.add('cell-dark'); canvas.appendChild(cell); continue;
       }
 
-      const inFog = state.fog[y][x]; // seen but currently dark
-      const tile  = state.map[y][x];
+      const inFog=state.fog[y][x];
+      const tile=state.map[y][x];
 
-      if (x === p.x && y === p.y) {
-        cell.classList.add('cell-player');
-        cell.textContent = p.glyph;
+      if (x===p.x&&y===p.y) {
+        cell.classList.add('cell-player'); cell.textContent=p.glyph;
       } else {
-        const monster = !inFog && getMonsterAt(x, y);
-        const item    = !inFog && getItemAt(x, y);
+        const monster = !inFog&&getMonsterAt(x,y);
+        const item    = !inFog&&getItemAt(x,y);
+        const disc    = !inFog&&getDiscoveryAt(x,y);
+
         if (monster) {
-          cell.classList.add('cell-monster');
-          cell.textContent = monster.glyph;
+          cell.classList.add('cell-monster'); cell.textContent=monster.glyph;
         } else if (item) {
-          cell.classList.add('cell-item');
-          cell.textContent = item.glyph;
+          cell.classList.add('cell-item'); cell.textContent=item.glyph;
+        } else if (disc) {
+          cell.classList.add('cell-discovery'); cell.textContent='?';
         } else {
-          let glyph = tileGlyph[tile] ?? '?';
-          if (tile === TILE.HAZARD && cartridge.hazards.length)
-            glyph = cartridge.hazards[state.tileData[y][x] % cartridge.hazards.length].glyph;
-          if (tile === TILE.SHRINE && cartridge.shrines.length)
-            glyph = cartridge.shrines[state.tileData[y][x] % cartridge.shrines.length].glyph;
-          cell.classList.add('cell-' + (tileCls[tile]||'floor'));
-          if (inFog) cell.style.opacity = '0.35';
-          cell.textContent = glyph;
+          let glyph=tileGlyph[tile]??'?';
+          if (tile===TILE.HAZARD&&cartridge.hazards.length)
+            glyph=cartridge.hazards[state.tileData[y][x]%cartridge.hazards.length].glyph;
+          if (tile===TILE.SHRINE&&cartridge.shrines.length)
+            glyph=cartridge.shrines[state.tileData[y][x]%cartridge.shrines.length].glyph;
+          cell.classList.add('cell-'+(tileCls[tile]||'floor'));
+          if (inFog) cell.style.opacity='0.35';
+          cell.textContent=glyph;
         }
       }
       canvas.appendChild(cell);
@@ -1470,36 +1681,28 @@ function render() {
   }
 }
 
-// ── Render side panels ────────────────────────────────────────
+// ── Side panels ───────────────────────────────────────────────
 function renderSidePanels() {
   if (!state) return;
-  renderInventory();
-  renderFactions();
+  renderInventory(); renderFactions();
 }
 
 function renderInventory() {
-  const inv = state.player.inventory;
-  document.getElementById('inv-count').textContent = inv.length ? `(${inv.length})` : '(empty)';
-  const el = document.getElementById('inventory-list');
-  if (inv.length === 0) {
-    el.innerHTML = '<em style="color:var(--muted)">Nothing carried.</em>';
-    return;
-  }
-  el.innerHTML = inv.map((it, i) =>
+  const inv=state.player.inventory;
+  document.getElementById('inv-count').textContent=inv.length?`(${inv.length})`:'(empty)';
+  const el=document.getElementById('inventory-list');
+  if (!inv.length) { el.innerHTML='<em style="color:var(--muted)">Nothing carried.</em>'; return; }
+  el.innerHTML=inv.map((it,i)=>
     `<div class="inv-item" onclick="G._useItemIdx(${i})" style="cursor:pointer">
       <span class="inv-glyph">${it.glyph}</span>
       <div style="flex:1"><div class="inv-name">${it.name}</div><div class="inv-kind">${it.kind} — ${it.description||''}</div></div>
-    </div>`
-  ).join('');
+    </div>`).join('');
 }
 
 function renderFactions() {
-  if (!state.factions || state.factions.length === 0) return;
-  const el = document.getElementById('faction-list');
-  el.innerHTML = state.factions.map(f => {
-    const rep = f.reputation;
-    const pct = Math.abs(rep);
-    const cls = rep >= 0 ? 'rep-pos' : 'rep-neg';
+  if (!state.factions||!state.factions.length) return;
+  document.getElementById('faction-list').innerHTML=state.factions.map(f=>{
+    const rep=f.reputation, pct=Math.abs(rep), cls=rep>=0?'rep-pos':'rep-neg';
     return `<div class="faction-row">
       <span class="faction-name">${f.name}</span>
       <div class="faction-rep-bar"><div class="faction-rep-fill ${cls}" style="width:${pct}%"></div></div>
@@ -1508,118 +1711,49 @@ function renderFactions() {
   }).join('');
 }
 
-// ── LLM prompt content ────────────────────────────────────────
-function buildLLMPrompt() {
-  return `You are a world cartridge generator for a roguelike game called Rogue LLM.
-
-Return ONLY valid JSON. No markdown. No explanation. No code blocks. Just the JSON object.
-
-Generate a complete world cartridge conforming EXACTLY to this schema:
-
-{
-  "schema_version": "0.4",
-  "title": "string",
-  "genre": "string",
-  "premise": "string (1-2 sentences)",
-  "tone": ["string", ...],
-  "laws_of_reality": ["string", ...],
-  "player": {
-    "name": "string",
-    "max_hp": 30,
-    "max_focus": 12,
-    "attack": 5,
-    "defense": 1,
-    "hunger": 80,
-    "glyph": "@"
-  },
-  "powers": [ { "id":"snake_case", "name":"string", "cost":4, "description":"string", "effect":{ "type":"one of the legal types below", ... } } ],
-  "factions": [ { "id":"snake_case", "name":"string", "reputation":0, "agenda":"string" } ],
-  "creatures": [ { "id":"snake_case", "name":"string", "glyph":"single char", "hp":10, "attack":3, "defense":0, "behavior":"chase|guard|patrol", "tags":["string"] } ],
-  "items": [ { "id":"snake_case", "name":"string", "glyph":"single char", "kind":"key|food|potion|relic|weapon|armor|focus", "description":"string", "rarity":1, "effect":{ "type":"...", "amount":0 } } ],
-  "rooms": [ { "title":"string", "description":"string" } ],
-  "events": [ { "id":"snake_case", "text":"string", "effect":{ "type":"...", "amount":0, "faction":"snake_case" } } ],
-  "hazards": [ { "id":"snake_case", "name":"string", "glyph":"single char", "effect":{ "type":"damage", "amount":1 } } ],
-  "shrines": [ { "id":"snake_case", "name":"string", "glyph":"single char", "effect":{ "type":"heal", "amount":6 } } ],
-  "quest_hooks": ["string"],
-  "endings": [ { "id":"snake_case", "text":"string" } ]
-}
-
-LEGAL EFFECT TYPES (use ONLY these):
-heal, damage, focus_change, hunger_change, add_key, reveal_map,
-attack_bonus, defense_bonus, max_hp_bonus, max_focus_bonus,
-reputation_change, summon, teleport, cleanse, light_change
-
-BALANCE CONSTRAINTS:
-- player max_hp: 15–50, attack: 3–10, defense: 0–5
-- creature hp: 3–30, attack: 1–12, defense: 0–6
-- item rarity: 1–5
-- power cost: 1–15
-- heal amounts: 1–20
-- damage amounts: 1–8
-
-REQUIREMENTS:
-- Use snake_case for all id fields
-- Include at least: 4 factions, 6 creatures, 8 items, 10 rooms, 8 events, 2 hazards, 2 shrines, 5 quest_hooks, 3 endings
-- Do NOT invent new effect types
-- Do NOT add fields not in the schema
-- Return JSON only — no prose before or after
-
-The genre/theme is your choice. Be creative and specific. Avoid generic fantasy.
-Good examples: "deep-sea corporate espionage", "1920s circus ghosts", "bureaucratic afterlife",
-"Antarctic mycology horror", "Meiji-era spirit detective", "sentient library uprising".`;
-}
-
-// ── Keyboard support ──────────────────────────────────────────
+// ── Keyboard ──────────────────────────────────────────────────
 document.addEventListener('keydown', function(e) {
   switch(e.key) {
-    case 'ArrowUp':    case 'w': case 'k': G.move(0,-1);  e.preventDefault(); break;
-    case 'ArrowDown':  case 's': case 'j': G.move(0,1);   e.preventDefault(); break;
-    case 'ArrowLeft':  case 'a': case 'h': G.move(-1,0);  e.preventDefault(); break;
-    case 'ArrowRight': case 'd': case 'l': G.move(1,0);   e.preventDefault(); break;
-    case '.': case ' ':  G.wait();        e.preventDefault(); break;
-    case 'i':  G.useItem();               e.preventDefault(); break;
-    case 'p':  G.usePower();              e.preventDefault(); break;
-    case 'x':  G.inspect();               e.preventDefault(); break;
-    case 'S':  G.saveGame();              e.preventDefault(); break;
-    case 'L':  G.loadGame();              e.preventDefault(); break;
+    case 'ArrowUp':   case 'w': case 'k': G.move(0,-1);   e.preventDefault(); break;
+    case 'ArrowDown': case 's': case 'j': G.move(0,1);    e.preventDefault(); break;
+    case 'ArrowLeft': case 'a': case 'h': G.move(-1,0);   e.preventDefault(); break;
+    case 'ArrowRight':case 'd': case 'l': G.move(1,0);    e.preventDefault(); break;
+    case '.': case ' ':  G.wait();                         e.preventDefault(); break;
+    case '>':            G.descend();                      e.preventDefault(); break;
+    case 'r': case 'R':  G.retreat();                      e.preventDefault(); break;
+    case 'i':            G.useItem();                      e.preventDefault(); break;
+    case 'p':            G.usePower();                     e.preventDefault(); break;
+    case 'x': case 'X':  G.inspect();                      e.preventDefault(); break;
+    case 'S':            G.saveGame();                     e.preventDefault(); break;
+    case 'L':            G.loadGame();                     e.preventDefault(); break;
   }
 });
 
-// ── Touch swipe support ───────────────────────────────────────
+// ── Touch swipe on map ────────────────────────────────────────
 (function() {
   let tx0, ty0;
-  const mapEl = document.getElementById('map-area');
-  mapEl.addEventListener('touchstart', e => {
-    tx0 = e.touches[0].clientX;
-    ty0 = e.touches[0].clientY;
-  }, { passive: true });
-  mapEl.addEventListener('touchend', e => {
-    if (tx0 === undefined) return;
-    const dx = e.changedTouches[0].clientX - tx0;
-    const dy = e.changedTouches[0].clientY - ty0;
-    const adx = Math.abs(dx), ady = Math.abs(dy);
-    if (adx < 12 && ady < 12) { G.wait(); return; }
-    if (adx > ady) G.move(dx > 0 ? 1 : -1, 0);
-    else           G.move(0, dy > 0 ? 1 : -1);
-    tx0 = ty0 = undefined;
-  }, { passive: true });
+  const el=document.getElementById('map-area');
+  el.addEventListener('touchstart', e=>{ tx0=e.touches[0].clientX; ty0=e.touches[0].clientY; }, {passive:true});
+  el.addEventListener('touchend', e=>{
+    if (tx0===undefined) return;
+    const dx=e.changedTouches[0].clientX-tx0, dy=e.changedTouches[0].clientY-ty0;
+    const adx=Math.abs(dx), ady=Math.abs(dy);
+    if (adx<12&&ady<12) { G.wait(); }
+    else if (adx>ady)   { G.move(dx>0?1:-1,0); }
+    else                { G.move(0,dy>0?1:-1); }
+    tx0=ty0=undefined;
+  }, {passive:true});
 })();
 
 // ── Boot ──────────────────────────────────────────────────────
 (function boot() {
-  // Populate LLM prompt
-  document.getElementById('llm-prompt').value = buildLLMPrompt();
-
-  // Load default cartridge
   try {
-    cartridge = validateCartridge(DEFAULT_CARTRIDGE);
-    document.getElementById('game-title').textContent = cartridge.title.toUpperCase();
-    document.getElementById('premise-text').textContent = cartridge.premise;
-  } catch(e) {
-    Debug.log('Boot cartridge error: ' + e.message);
-  }
+    cartridge=validateCartridge(DEFAULT_CARTRIDGE);
+    document.getElementById('game-title').textContent=cartridge.title.toUpperCase();
+    document.getElementById('premise-text').textContent=cartridge.premise;
+  } catch(e) { Debug.log('Boot cart: '+e.message); }
 
-  // Auto-start
+  G.setDifficulty('relaxed');
   G.newRun();
 })();
 
