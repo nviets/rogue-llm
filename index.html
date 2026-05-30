@@ -1731,11 +1731,11 @@ document.addEventListener('keydown', function(e) {
 document.getElementById('map-canvas').addEventListener('click', e => {
   if (!state || state.gameOver) return;
   const rect = e.currentTarget.getBoundingClientRect();
-  const col = Math.floor((e.clientX - rect.left) / (rect.width  / GRID));
-  const row = Math.floor((e.clientY - rect.top)  / (rect.height / GRID));
-  const dx = col - state.player.x;
-  const dy = row - state.player.y;
-  if (dx === 0 && dy === 0) { G.wait(); return; }
+  const col = (e.clientX - rect.left) / (rect.width  / GRID);
+  const row = (e.clientY - rect.top)  / (rect.height / GRID);
+  const dx = col - GRID / 2;
+  const dy = row - GRID / 2;
+  if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) { G.wait(); return; }
   if (Math.abs(dx) >= Math.abs(dy)) G.move(Math.sign(dx), 0);
   else G.move(0, Math.sign(dy));
 });
