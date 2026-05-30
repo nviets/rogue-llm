@@ -102,6 +102,24 @@ textarea { resize: vertical; width: 100%; }
 .cell-shrine    { color: #3498db; }
 .cell-discovery { color: var(--discovery); }
 
+/* Objective bar */
+#obj-bar {
+  padding: 3px 12px; font-size: 11px; color: var(--accent); background: #0a0800;
+  border-bottom: 1px solid var(--border); flex-shrink: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* Equipment slots */
+.equip-slots { display: flex; flex-direction: column; gap: 3px; margin-bottom: 8px; }
+.equip-slot {
+  display: flex; align-items: center; gap: 8px; padding: 5px 8px;
+  border-radius: 4px; border: 1px solid var(--border); font-size: 13px;
+}
+.equip-slot.filled { background: #0d1200; border-color: var(--accent); cursor: pointer; }
+.equip-slot.empty  { background: var(--surface); opacity: 0.5; font-size: 12px; }
+.equip-slot-label  { color: var(--muted); font-size: 10px; min-width: 52px; }
+.equip-badge { color: var(--accent); font-size: 10px; }
+
 /* Action bar — horizontal row of action buttons */
 #action-bar {
   display: flex; gap: 4px; padding: 4px 6px;
@@ -224,6 +242,7 @@ textarea { resize: vertical; width: 100%; }
     <div class="stat"><span class="stat-label">DEPTH</span><span class="stat-val stat-depth"   id="s-depth">—</span></div>
   </div>
 
+  <div id="obj-bar">◆ Explore the dungeon</div>
   <div id="map-area"><div id="map-canvas"></div></div>
 
   <!-- Shown only when player stands on stairs -->
@@ -359,8 +378,9 @@ const TILE = { WALL:0, FLOOR:1, DOOR:2, LOCKED_DOOR:3, STAIRS_DOWN:4, HAZARD:5, 
 const EFFECT_TYPES = new Set([
   'heal','damage','focus_change','hunger_change','add_key','reveal_map',
   'attack_bonus','defense_bonus','max_hp_bonus','max_focus_bonus',
-  'reputation_change','summon','teleport','cleanse','light_change'
+  'reputation_change','summon','teleport','cleanse','light_change','none'
 ]);
+const EQUIPMENT_SLOTS = new Set(['weapon','shield','helmet','breastplate','relic']);
 
 // ════════════════════════════════════════════════════════════════
 //  DIFFICULTY PRESETS
@@ -466,6 +486,17 @@ function validateCartridge(raw) {
       it.glyph  = it.glyph || '?';
       it.kind   = it.kind  || 'relic';
       it.rarity = clamp(Number(it.rarity)||1, 1, 5);
+      // Normalize equipment fields
+      if (EQUIPMENT_SLOTS.has(it.kind) || EQUIPMENT_SLOTS.has(it.slot)) {
+        it.slot = it.slot || it.kind;
+        it.stats = {
+          attack:   clamp(Number(it.stats?.attack)  ||0, 0, 20),
+          defense:  clamp(Number(it.stats?.defense) ||0, 0, 20),
+          max_hp:   clamp(Number(it.stats?.max_hp)  ||0, 0, 50),
+          max_focus:clamp(Number(it.stats?.max_focus)||0, 0, 20)
+        };
+        if (!it.effect) it.effect = { type:'none' };
+      }
       if (it.effect) validateEffect(it.effect, `item[${it.id}].effect`);
       return it;
     });
@@ -501,13 +532,35 @@ function validateCartridge(raw) {
     agenda: f.agenda||''
   })) : [];
 
-  c.tone            = Array.isArray(c.tone)             ? c.tone            : [];
-  c.laws_of_reality = Array.isArray(c.laws_of_reality)  ? c.laws_of_reality : [];
-  c.quest_hooks     = Array.isArray(c.quest_hooks)       ? c.quest_hooks     : [];
+  c.tone            = Array.isArray(c.tone)            ? c.tone            : [];
+  c.laws_of_reality = Array.isArray(c.laws_of_reality) ? c.laws_of_reality : [];
+  c.quest_hooks     = Array.isArray(c.quest_hooks)     ? c.quest_hooks     : [];
   c.endings         = Array.isArray(c.endings) && c.endings.length
     ? c.endings : [{ id:'default', text:'Your journey ends here.' }];
-  c.genre           = c.genre           || 'roguelike';
-  c.schema_version  = c.schema_version  || '0.4';
+  c.genre           = c.genre          || 'roguelike';
+  c.schema_version  = c.schema_version || '0.5';
+
+  // Optional story & world fields (backward compatible)
+  c.lore          = Array.isArray(c.lore)         ? c.lore         : [];
+  c.world_history = Array.isArray(c.world_history) ? c.world_history : [];
+  c.artifacts     = Array.isArray(c.artifacts)     ? c.artifacts    : [];
+
+  if (c.objective && typeof c.objective === 'object') {
+    c.objective.stages = Array.isArray(c.objective.stages) ? c.objective.stages : [];
+  } else {
+    c.objective = null;
+  }
+
+  c.choices = Array.isArray(c.choices) ? c.choices : [];
+  c.choices.forEach((ch, ci) => {
+    ch.options = Array.isArray(ch.options) ? ch.options : [];
+    ch.options.forEach((opt, oi) => {
+      opt.effects = Array.isArray(opt.effects) ? opt.effects : [];
+      opt.effects.forEach((eff, ei) =>
+        validateEffect(eff, `choice[${ch.id||ci}].option[${oi}].effect[${ei}]`)
+      );
+    });
+  });
 
   if (errors.length > 0) throw new Error(errors.join('\n'));
   return c;
@@ -517,14 +570,20 @@ function validateCartridge(raw) {
 //  DEFAULT CARTRIDGE — The Sky Beneath Lima
 // ════════════════════════════════════════════════════════════════
 const DEFAULT_CARTRIDGE = {
-  schema_version:"0.4", title:"The Sky Beneath Lima", genre:"mythic-horror comedy",
-  premise:"A red-eye flight over Peru folds into a monastery catacomb where colonial saints, pre-Columbian huacas, airline ghosts, guano syndicates, and salt monks dispute ownership of your itinerary.",
+  schema_version:"0.5", title:"The Sky Beneath Lima", genre:"mythic-horror comedy",
+  premise:"A red-eye flight over Peru folds into a monastery catacomb where colonial saints, pre-Columbian huacas, airline ghosts, and guano syndicates dispute ownership of the Salt Gate — a passage sealed by three forgotten betrayals.",
   tone:["strange","wry","dangerous","mythic"],
   laws_of_reality:[
     "The dead maintain strong opinions about ticketing policies.",
     "Salt is both currency and sin.",
     "Altitude sickness and divine revelation are the same malady.",
     "All flight schedules are aspirational."
+  ],
+  world_history:[
+    "The Bell Archivists were founded when a saint refused burial and began keeping records instead.",
+    "The Salt Monks sealed the first gate during a year without tides, using salt from unspecified sources.",
+    "The Guano Consortium discovered that bones could serve as loan collateral in 1887.",
+    "The airline ghosts arrived during a flight that technically never departed."
   ],
   player:{ name:"Stranded Passenger", max_hp:30, max_focus:12, attack:5, defense:1, hunger:80, glyph:"@" },
   powers:[
@@ -533,28 +592,33 @@ const DEFAULT_CARTRIDGE = {
     { id:"huaca_blessing", name:"Huaca Blessing",   cost:8, description:"A stone deity lends vigor. Heal 10 HP.",                          effect:{ type:"heal",          amount:10} }
   ],
   factions:[
-    { id:"colonial_saints",  name:"Colonial Saints",       reputation:0, agenda:"Reclaim the upper catacombs for the Church of Lima." },
-    { id:"huacas",           name:"Pre-Columbian Huacas",  reputation:0, agenda:"Restore the old rites before the salt runs out." },
-    { id:"airline_ghosts",   name:"Airline Ghosts",        reputation:0, agenda:"Achieve posthumous on-time arrival. Codes may vary." },
-    { id:"guano_syndicate",  name:"Guano Syndicate",       reputation:0, agenda:"Monopolize all fertilizer routes, living or dead." }
+    { id:"colonial_saints",  name:"Colonial Saints",      reputation:0, agenda:"Reclaim the upper catacombs for the Church of Lima." },
+    { id:"huacas",           name:"Pre-Columbian Huacas", reputation:0, agenda:"Restore the old rites before the salt runs out." },
+    { id:"airline_ghosts",   name:"Airline Ghosts",       reputation:0, agenda:"Achieve posthumous on-time arrival. Codes may vary." },
+    { id:"guano_syndicate",  name:"Guano Syndicate",      reputation:0, agenda:"Monopolize all fertilizer routes, living or dead." }
   ],
   creatures:[
-    { id:"guano_bat",      name:"Guano Bat",                   glyph:"🦇", hp:6,  attack:3, defense:0, behavior:"chase",  tags:["flying"] },
-    { id:"colonial_saint", name:"Jilted Saint",                glyph:"✝",  hp:12, attack:5, defense:2, behavior:"patrol", tags:["undead"] },
-    { id:"salt_monk",      name:"Salt Monk",                   glyph:"🧂", hp:10, attack:4, defense:3, behavior:"guard",  tags:["monk"] },
-    { id:"airline_ghost",  name:"Airline Ghost",               glyph:"👻", hp:8,  attack:4, defense:1, behavior:"chase",  tags:["ghost"] },
-    { id:"huaca_idol",     name:"Animate Huaca",               glyph:"🗿", hp:18, attack:7, defense:4, behavior:"guard",  tags:["stone"] },
-    { id:"guano_foreman",  name:"Guano Syndicate Foreman",     glyph:"🎩", hp:22, attack:8, defense:3, behavior:"chase",  tags:["boss"] }
+    { id:"guano_bat",      name:"Guano Bat",               glyph:"🦇", hp:6,  attack:3, defense:0, behavior:"chase",  tags:["flying"] },
+    { id:"colonial_saint", name:"Jilted Saint",            glyph:"✝",  hp:12, attack:5, defense:2, behavior:"patrol", tags:["undead"] },
+    { id:"salt_monk",      name:"Salt Monk",               glyph:"🧂", hp:10, attack:4, defense:3, behavior:"guard",  tags:["monk"] },
+    { id:"airline_ghost",  name:"Airline Ghost",           glyph:"👻", hp:8,  attack:4, defense:1, behavior:"chase",  tags:["ghost"] },
+    { id:"huaca_idol",     name:"Animate Huaca",           glyph:"🗿", hp:18, attack:7, defense:4, behavior:"guard",  tags:["stone"] },
+    { id:"guano_foreman",  name:"Guano Syndicate Foreman", glyph:"🎩", hp:22, attack:8, defense:3, behavior:"chase",  tags:["boss"] }
   ],
   items:[
-    { id:"altitude_tabs",    name:"Altitude Tablets",  glyph:"💊", kind:"food",   description:"Restore 25 hunger; slight euphoria.",         rarity:1, effect:{ type:"hunger_change", amount:25 } },
-    { id:"pisco_flask",      name:"Pisco Flask",        glyph:"🍶", kind:"potion", description:"Heal 10 HP; the saints disapprove.",          rarity:2, effect:{ type:"heal",          amount:10 } },
-    { id:"gate_key",         name:"Gate Key",           glyph:"🗝", kind:"key",    description:"Opens a locked catacomb door.",               rarity:2, effect:{ type:"add_key",        amount:1  } },
-    { id:"cargo_manifest",   name:"Cargo Manifest",     glyph:"📋", kind:"relic",  description:"Reveals the entire floor layout.",            rarity:3, effect:{ type:"reveal_map",     amount:0  } },
-    { id:"salt_crucifix",    name:"Salt Crucifix",      glyph:"✝",  kind:"armor",  description:"+2 defense while held.",                     rarity:2, effect:{ type:"defense_bonus",  amount:2  } },
-    { id:"obsidian_blade",   name:"Obsidian Blade",     glyph:"⚔",  kind:"weapon", description:"+4 attack, pre-Columbian warranty.",         rarity:3, effect:{ type:"attack_bonus",   amount:4  } },
-    { id:"focus_incense",    name:"Copal Incense",      glyph:"🪔", kind:"focus",  description:"Restore 8 focus.",                            rarity:2, effect:{ type:"focus_change",   amount:8  } },
-    { id:"emergency_ration", name:"Emergency Ration",   glyph:"🥫", kind:"food",   description:"Restore 40 hunger; tastes of regret.",        rarity:1, effect:{ type:"hunger_change", amount:40 } }
+    { id:"altitude_tabs",     name:"Altitude Tablets",   glyph:"💊", kind:"food",       description:"Restore 25 hunger; slight euphoria.",               rarity:1, effect:{ type:"hunger_change", amount:25 } },
+    { id:"pisco_flask",       name:"Pisco Flask",         glyph:"🍶", kind:"potion",     description:"Heal 10 HP; the saints disapprove.",                rarity:2, effect:{ type:"heal",          amount:10 } },
+    { id:"gate_key",          name:"Gate Key",            glyph:"🗝", kind:"key",        description:"Opens a locked catacomb door.",                     rarity:2, effect:{ type:"add_key",        amount:1  } },
+    { id:"cargo_manifest",    name:"Cargo Manifest",      glyph:"📋", kind:"relic",      description:"Reveals the entire floor layout.",                  rarity:3, effect:{ type:"reveal_map",     amount:0  } },
+    { id:"focus_incense",     name:"Copal Incense",       glyph:"🪔", kind:"focus",      description:"Restore 8 focus.",                                  rarity:2, effect:{ type:"focus_change",   amount:8  } },
+    { id:"emergency_ration",  name:"Emergency Ration",    glyph:"🥫", kind:"food",       description:"Restore 40 hunger; tastes of regret.",              rarity:1, effect:{ type:"hunger_change", amount:40 } },
+    { id:"salt_iron_sword",   name:"Salt-Iron Sword",     glyph:"⚔",  kind:"weapon",    slot:"weapon",     description:"Sweats brine when lies are spoken.",             rarity:3, stats:{ attack:3, defense:0, max_hp:0, max_focus:0 }, effect:{ type:"none" } },
+    { id:"consortium_buckler",name:"Consortium Buckler",  glyph:"🛡", kind:"shield",    slot:"shield",     description:"Guano Syndicate stamped. Unpleasant but effective.", rarity:2, stats:{ attack:0, defense:2, max_hp:0, max_focus:0 }, effect:{ type:"none" } },
+    { id:"archivists_visor",  name:"Archivist's Visor",   glyph:"🎭", kind:"helmet",    slot:"helmet",     description:"Brass eyepieces; bureaucratic texts shimmer with meaning.", rarity:3, stats:{ attack:0, defense:0, max_hp:0, max_focus:3 }, effect:{ type:"none" } },
+    { id:"alpaca_cuirass",    name:"Alpaca-Wool Cuirass", glyph:"🧥", kind:"breastplate",slot:"breastplate",description:"Woven from beasts who died knowing the route.",   rarity:3, stats:{ attack:0, defense:1, max_hp:8,  max_focus:0 }, effect:{ type:"none" } },
+    { id:"huaca_compass",     name:"Huaca Compass",       glyph:"🧭", kind:"relic",     slot:"relic",      description:"Points toward shrines, not north. Never north.",  rarity:4, stats:{ attack:0, defense:0, max_hp:0,  max_focus:2 }, effect:{ type:"none" } },
+    { id:"bell_fragment_1",   name:"First Bell Fragment", glyph:"🔔", kind:"quest",     description:"A salt-mineral shard that hums near the gate.",      rarity:3, effect:{ type:"none" } },
+    { id:"bell_fragment_2",   name:"Final Bell Fragment", glyph:"🔔", kind:"quest",     description:"The last piece. Where it points, the gate listens.", rarity:4, effect:{ type:"none" } }
   ],
   rooms:[
     { title:"Baggage Claim Crypt",       description:"Uncollected luggage from flights that never arrived molders in niches." },
@@ -569,14 +633,14 @@ const DEFAULT_CARTRIDGE = {
     { title:"The Pilot's Ossuary",       description:"Bones of pilots arranged by airline, seniority, and accumulated miles." }
   ],
   events:[
-    { id:"saint_glares",    text:"A saint fixes you with a disapproving stare. Colonial reputation suffers.",         effect:{ type:"reputation_change", amount:-1, faction:"colonial_saints" } },
-    { id:"bat_swarm",       text:"A guano bat swarm divebombs you for 3 damage!",                                    effect:{ type:"damage",            amount:3  } },
-    { id:"huaca_nods",      text:"An ancient idol inclines its head. The huacas are mollified.",                     effect:{ type:"reputation_change", amount:2,  faction:"huacas"          } },
-    { id:"ghost_delay",     text:"An airline ghost hands you a delay notification. Hunger −2.",                      effect:{ type:"hunger_change",     amount:-2 } },
-    { id:"salt_blessing",   text:"A monk blesses you with salt. Gain 5 HP.",                                        effect:{ type:"heal",              amount:5  } },
-    { id:"manifest_found",  text:"You find a torn cargo manifest. Gain 1 key.",                                     effect:{ type:"add_key",           amount:1  } },
-    { id:"syndicate_bribe", text:"A guano foreman tips you off. Syndicate reputation improves.",                     effect:{ type:"reputation_change", amount:2,  faction:"guano_syndicate" } },
-    { id:"altitude_surge",  text:"Altitude-induced clarity restores 5 focus.",                                      effect:{ type:"focus_change",      amount:5  } }
+    { id:"saint_glares",    text:"A saint fixes you with a disapproving stare. Colonial reputation suffers.",       effect:{ type:"reputation_change", amount:-1, faction:"colonial_saints" } },
+    { id:"bat_swarm",       text:"A guano bat swarm divebombs you for 3 damage!",                                  effect:{ type:"damage",            amount:3  } },
+    { id:"huaca_nods",      text:"An ancient idol inclines its head. The huacas are mollified.",                   effect:{ type:"reputation_change", amount:2,  faction:"huacas"          } },
+    { id:"ghost_delay",     text:"An airline ghost hands you a delay notification. Hunger −2.",                    effect:{ type:"hunger_change",     amount:-2 } },
+    { id:"salt_blessing",   text:"A monk blesses you with salt. Gain 5 HP.",                                      effect:{ type:"heal",              amount:5  } },
+    { id:"manifest_found",  text:"You find a torn cargo manifest. Gain 1 key.",                                   effect:{ type:"add_key",           amount:1  } },
+    { id:"syndicate_bribe", text:"A guano foreman tips you off. Syndicate reputation improves.",                   effect:{ type:"reputation_change", amount:2,  faction:"guano_syndicate" } },
+    { id:"altitude_surge",  text:"Altitude-induced clarity restores 5 focus.",                                    effect:{ type:"focus_change",      amount:5  } }
   ],
   hazards:[
     { id:"guano_pool", name:"Guano Pool", glyph:"~", effect:{ type:"damage",        amount:1  } },
@@ -593,6 +657,57 @@ const DEFAULT_CARTRIDGE = {
     "A colonial saint is secretly allied with the syndicate. Proof is somewhere in the archive.",
     "The pilot's ossuary contains a flight manifest that could close a gate—if you can read it aloud in the right room."
   ],
+  lore:[
+    { stage:0, text:"The air down here carries something that isn't altitude. It's precedence." },
+    { stage:1, text:"The upper catacombs were built to conceal a gate, not honor the dead." },
+    { stage:2, text:"The bell was not cast from metal. It was excavated from a salt seam. No one knows who placed it there." },
+    { stage:3, text:"Each faction remembers a different traitor at the original sealing. None of the names overlap." }
+  ],
+  artifacts:[
+    { id:"bell_fragment_1", name:"First Bell Fragment",  description:"A curved shard of salt-mineral that hums near the gate.", stage:1 },
+    { id:"bell_fragment_2", name:"Final Bell Fragment",  description:"The piece the Syndicate denies exists. The Monks deny having it.", stage:3 }
+  ],
+  objective:{
+    title:"Open the Salt Gate",
+    description:"Find the bell fragments and choose who controls the gate beneath Lima.",
+    stages:[
+      { id:"discover_secret",  title:"The Monastery's True Purpose",
+        trigger:{ type:"auto" },
+        on_complete:{ add_lore:"The upper catacombs were built to conceal a gate, not honor the dead." } },
+      { id:"first_fragment",   title:"Find the First Bell Fragment",
+        trigger:{ type:"item", value:"bell_fragment_1" },
+        on_complete:{ add_lore:"The bell was not cast. It was excavated from salt." } },
+      { id:"faction_conflict", title:"The Factions Converge",
+        trigger:{ type:"depth", value:3 },
+        on_complete:{ add_lore:"Each faction remembers a different traitor at the original sealing." } },
+      { id:"final_choice",     title:"Find the Final Bell Fragment",
+        trigger:{ type:"item", value:"bell_fragment_2" },
+        on_complete:{ add_lore:"The gate opens when three agree, or when one stands alone." } }
+    ]
+  },
+  choices:[{
+    id:"salt_gate_claim", stage:4,
+    title:"Who Controls the Salt Gate?",
+    text:"The fragments pulse. Three factions wait at the threshold. Each holds a different version of the old betrayal. The gate opens for exactly one truth.",
+    options:[
+      { label:"Give it to the Huacas",
+        result:"The old rites resume. Something enormous and patient begins moving beneath.",
+        effects:[ { type:"reputation_change", faction:"huacas", amount:5 }, { type:"heal", amount:15 } ],
+        advance_stage:true },
+      { label:"Seal it with the Salt Monks",
+        result:"The gate closes permanently. The sea begins writing to you in brine.",
+        effects:[ { type:"reputation_change", faction:"colonial_saints", amount:3 }, { type:"max_focus_bonus", amount:2 } ],
+        advance_stage:true },
+      { label:"Sell the map to the Syndicate",
+        result:"You receive supplies and a receipt. Every room now has a price.",
+        effects:[ { type:"add_key", amount:3 }, { type:"hunger_change", amount:30 }, { type:"reputation_change", faction:"guano_syndicate", amount:5 } ],
+        advance_stage:true },
+      { label:"Destroy the fragments",
+        result:"The salt dissolves. The gate never existed. A strange peace descends.",
+        effects:[ { type:"heal", amount:20 }, { type:"focus_change", amount:8 } ],
+        advance_stage:true }
+    ]
+  }],
   endings:[
     { id:"departures",     text:"You reach the surface gate just as a phantom Boeing cracks through the cloud layer. The boarding call is for you. You made it—sort of." },
     { id:"becomes_huaca",  text:"The stone in the walls has a quality. You stop moving. You stop needing to. Travelers will find you and leave small offerings, and you will be content." },
@@ -807,19 +922,93 @@ function getDifficulty() {
   return DIFFICULTY[key] || DIFFICULTY.relaxed;
 }
 
+// ── Equipment & effective stats ───────────────────────────────
+function equipBonus(stat) {
+  if (!state?.player?.equipment) return 0;
+  return Object.values(state.player.equipment)
+    .reduce((s, it) => s + (it?.stats?.[stat] || 0), 0);
+}
+function effectiveMaxHP()    { return state.player.max_hp    + equipBonus('max_hp');    }
+function effectiveMaxFocus() { return state.player.max_focus + equipBonus('max_focus'); }
+
+function equipItem(item) {
+  const slot = item.slot || item.kind;
+  const old  = state.player.equipment[slot];
+  if (old) { state.player.inventory.push(old); log(`Unequipped ${old.name}.`); }
+  state.player.equipment[slot] = item;
+  const bonuses = [];
+  const s = item.stats || {};
+  if (s.attack)    bonuses.push(`+${s.attack} ATK`);
+  if (s.defense)   bonuses.push(`+${s.defense} DEF`);
+  if (s.max_hp)    bonuses.push(`+${s.max_hp} Max HP`);
+  if (s.max_focus) bonuses.push(`+${s.max_focus} Max FCS`);
+  log(`Equipped ${item.name}.${bonuses.length ? ' ('+bonuses.join(', ')+')' : ''}`, 'good');
+}
+
+// ── Story system ──────────────────────────────────────────────
+function advanceStory(triggerType, triggerValue) {
+  if (!cartridge.objective?.stages || !state.story) return;
+  for (const stage of cartridge.objective.stages) {
+    if (state.story.completedStages.has(stage.id)) continue;
+    const t = stage.trigger;
+    if (!t) continue;
+    const ok = t.type === 'auto' ||
+      (t.type === 'depth' && triggerType === 'depth' && state.depth >= t.value) ||
+      (t.type === 'item'  && triggerType === 'item'  && triggerValue === t.value);
+    if (ok) { completeStage(stage); break; }
+  }
+}
+
+function completeStage(stage) {
+  if (!state.story || state.story.completedStages.has(stage.id)) return;
+  state.story.completedStages.add(stage.id);
+  state.story.stage = state.story.completedStages.size;
+  log(`◆ ${stage.title}`, 'accent');
+  if (stage.on_complete?.add_lore) log(stage.on_complete.add_lore, 'discovery');
+  // Check if a choice is now due
+  const choice = (cartridge.choices || []).find(c =>
+    c.stage === state.story.stage && !state.story.resolvedChoices.has(c.id)
+  );
+  if (choice) setTimeout(() => showChoice(choice), 80);
+  render();
+}
+
+function showChoice(choice) {
+  const btns = choice.options.map((opt, i) => ({
+    label: opt.label, cls: 'primary',
+    action: () => resolveChoice(choice, i)
+  }));
+  btns.push({ label:'Decide later', action:()=>{} });
+  showModal(choice.title, choice.text, btns);
+}
+
+function resolveChoice(choice, optIdx) {
+  const opt = choice.options[optIdx];
+  log(`◆ ${opt.result}`, 'accent');
+  (opt.effects || []).forEach(e => applyEffect(e, choice.title));
+  state.story.resolvedChoices.add(choice.id);
+  if (opt.advance_stage) {
+    const next = (cartridge.objective?.stages || [])
+      .find(s => !state.story.completedStages.has(s.id));
+    if (next) completeStage(next);
+    else { log(`◆ ${cartridge.objective.title} — complete.`, 'accent'); }
+  }
+  renderSidePanels(); render();
+}
+
 // ── Apply effect ──────────────────────────────────────────────
 function applyEffect(effect, source) {
   if (!effect) return;
   const p = state.player;
   switch (effect.type) {
     case 'heal':
-      p.hp = Math.min(p.max_hp, p.hp + (effect.amount||0));
+      p.hp = Math.min(effectiveMaxHP(), p.hp + (effect.amount||0));
       log(`Healed ${effect.amount} HP.`, 'good'); break;
     case 'damage':
       p.hp -= (effect.amount||0);
       log(`Took ${effect.amount} damage from ${source||'unknown'}.`, 'danger'); break;
     case 'focus_change':
-      p.focus = clamp(p.focus + (effect.amount||0), 0, p.max_focus);
+      p.focus = clamp(p.focus + (effect.amount||0), 0, effectiveMaxFocus());
       log(`Focus ${effect.amount>=0?'+':''}${effect.amount}.`); break;
     case 'hunger_change':
       p.hunger = clamp(p.hunger + (effect.amount||0), 0, p.max_hunger);
@@ -856,6 +1045,7 @@ function applyEffect(effect, source) {
     case 'cleanse':   log('Cleansed.', 'good'); break;
     case 'light_change': log('The light shifts.', 'accent'); break;
     case 'summon':    log('Something stirs…', 'accent'); spawnRandomMonster(); break;
+    case 'none':      break;
   }
 }
 
@@ -899,6 +1089,7 @@ function updateFog() {
 // pick from it to populate non-combat points of interest on each floor.
 function buildDiscovery(rng) {
   const pool = [];
+  const currentStage = state?.story?.stage || 0;
 
   for (const law of cartridge.laws_of_reality)
     pool.push({ text:`Inscribed: "${law}"`, effect:{ type:'focus_change', amount:2 } });
@@ -912,7 +1103,16 @@ function buildDiscovery(rng) {
   for (const room of cartridge.rooms)
     pool.push({ text:`[${room.title}] ${room.description}`, effect:null });
 
-  // Generic world-flavored finds with small rewards
+  // Stage-gated lore entries
+  for (const entry of (cartridge.lore || []))
+    if ((entry.stage || 0) <= currentStage)
+      pool.push({ text: entry.text, effect:null });
+
+  // World history (always available)
+  for (const h of (cartridge.world_history || []))
+    pool.push({ text: h, effect:null });
+
+  // Generic finds
   pool.push({ text:'An abandoned camp, recently used. Something edible remains.',      effect:{ type:'hunger_change', amount:15 } });
   pool.push({ text:'A crude map scratched into the floor. The layout becomes clearer.',effect:{ type:'reveal_map',    amount:0  } });
   pool.push({ text:'A fragment of something medicinal. You feel slightly steadier.',   effect:{ type:'heal',          amount:3  } });
@@ -986,7 +1186,8 @@ function initRun(cart) {
     attack: cp.attack, defense: cp.defense,
     attack_bonus: 0, defense_bonus: 0,
     hunger: cp.hunger, max_hunger: cp.hunger,
-    keys: 0, glyph: cp.glyph, inventory: []
+    keys: 0, glyph: cp.glyph, inventory: [],
+    equipment: { weapon:null, shield:null, helmet:null, breastplate:null, relic:null }
   };
 
   state = {
@@ -1000,7 +1201,8 @@ function initRun(cart) {
     factions: cart.factions.map(f=>({...f})),
     usedShrines: new Set(),
     safetyNetUsed: false,
-    gameOver: false, rng
+    gameOver: false, rng,
+    story: { stage:0, completedStages: new Set(), resolvedChoices: new Set() }
   };
 
   const { monsters, items, discoveryMap } = spawnEntities(rng, rooms, diff);
@@ -1014,17 +1216,20 @@ function initRun(cart) {
   if (cart.quest_hooks.length > 0)
     log(`Rumor: "${rng.pick(cart.quest_hooks)}"`, 'important');
 
-  // Welcome the player to the mode on first run
   const modeName = currentDifficulty === 'relaxed'
     ? 'Relaxed (forgiving, exploratory)'
     : 'Classic (traditional roguelike)';
-  log(`Mode: ${modeName}. Use Inspect to read the room.`, 'muted');
+  log(`Mode: ${modeName}. Tap map to move, Look to inspect.`, 'muted');
+
+  // Trigger any auto-start story stage
+  advanceStory('auto');
 }
 
 // ── Combat ────────────────────────────────────────────────────
 function doAttack(attacker, defender) {
-  const atk = (attacker.attack||1) + (attacker===state.player ? (state.player.attack_bonus||0) : 0);
-  const def = (defender.defense||0) + (defender===state.player ? (state.player.defense_bonus||0) : 0);
+  const isPlayer = attacker === state.player;
+  const atk = (attacker.attack||1) + (isPlayer ? (state.player.attack_bonus||0) + equipBonus('attack') : 0);
+  const def = (defender.defense||0) + (defender===state.player ? (state.player.defense_bonus||0) + equipBonus('defense') : 0);
   const dmg = Math.max(1, atk - def + state.rng.range(-1,1));
   defender.hp -= dmg;
   return dmg;
@@ -1107,7 +1312,7 @@ function checkDeath() {
   // Relaxed mode: once-per-run rescue
   if (diff.deathSafetyNet && !state.safetyNetUsed) {
     state.safetyNetUsed = true;
-    state.player.hp = Math.ceil(state.player.max_hp * 0.35);
+    state.player.hp = Math.ceil(effectiveMaxHP() * 0.35);
     state.player.focus = Math.max(0, state.player.focus - 3);
     state.player.hunger = Math.max(0, state.player.hunger - 10);
     log('Something in this place refuses to let your story end cleanly.', 'accent');
@@ -1165,7 +1370,9 @@ G.move = function(dx, dy) {
       log(`Found: ${item.name}.`,'good');
     } else {
       p.inventory.push(item);
-      log(`Picked up: ${item.name}. (${item.description})`,'good');
+      const label = (item.slot || EQUIPMENT_SLOTS.has(item.kind)) ? ' [equip]' : '';
+      log(`Picked up: ${item.name}.${label} ${item.description||''}`,'good');
+      if (item.kind === 'quest') advanceStory('item', item.id);
     }
   }
 
@@ -1279,6 +1486,7 @@ G.retreat = function() {
 function nextFloor() {
   state.depth++;
   log(`You descend to depth ${state.depth}.`,'accent');
+  advanceStory('depth', state.depth);
 
   if (state.depth > 10) {
     const ending = state.rng.pick(cartridge.endings);
@@ -1310,24 +1518,45 @@ function nextFloor() {
 // ── Use Item ──────────────────────────────────────────────────
 G.useItem = function() {
   if (!state||state.gameOver) return;
-  const inv=state.player.inventory;
+  const inv = state.player.inventory;
   if (!inv.length) { log('You carry nothing.'); return; }
-  const html=inv.map((it,i)=>
-    `<div class="inv-item" onclick="G._useItemIdx(${i})" style="cursor:pointer">
+  const html = inv.map((it,i) => {
+    const isEquip = !!(it.slot || EQUIPMENT_SLOTS.has(it.kind));
+    return `<div class="inv-item" onclick="G._useItemIdx(${i})" style="cursor:pointer">
       <span class="inv-glyph">${it.glyph}</span>
       <div style="flex:1"><div class="inv-name">${it.name}</div><div class="inv-kind">${it.description||it.kind}</div></div>
-    </div>`).join('');
-  showModal('Use Item',' ',[{label:'Cancel',action:()=>{}}]);
+      <span style="font-size:11px;color:var(--accent);padding-left:4px">${isEquip?'equip':'use'}</span>
+    </div>`;
+  }).join('');
+  showModal('Inventory',' ',[{label:'Cancel',action:()=>{}}]);
   document.getElementById('modal-body').innerHTML=html;
 };
 
 G._useItemIdx = function(i) {
   closeModal(); if (!state) return;
-  const item=state.player.inventory.splice(i,1)[0];
+  const item = state.player.inventory[i];
   if (!item) return;
-  log(`You use: ${item.name}.`,'good');
-  if (item.effect) applyEffect(item.effect,item.name);
+  const slot = item.slot || (EQUIPMENT_SLOTS.has(item.kind) ? item.kind : null);
+  state.player.inventory.splice(i, 1);
+  if (slot) {
+    equipItem(item);
+  } else if (item.effect && item.effect.type !== 'none') {
+    log(`You use: ${item.name}.`, 'good');
+    applyEffect(item.effect, item.name);
+  } else {
+    log(`${item.name}: ${item.description||'nothing happens.'}`);
+  }
   endTurn();
+};
+
+G._unequipSlot = function(slot) {
+  if (!state) return;
+  const item = state.player.equipment[slot];
+  if (!item) return;
+  state.player.equipment[slot] = null;
+  state.player.inventory.push(item);
+  log(`Unequipped ${item.name}.`);
+  renderSidePanels(); render();
 };
 
 // ── Use Power ─────────────────────────────────────────────────
@@ -1436,7 +1665,16 @@ G.setDifficulty = function(mode) {
 G.saveGame = function() {
   if (!state) { log('Nothing to save.'); return; }
   try {
-    const save={cartridge, state:{...state, rng:null, usedShrines:[...state.usedShrines]}};
+    const storySave = state.story ? {
+      ...state.story,
+      completedStages: [...(state.story.completedStages || [])],
+      resolvedChoices: [...(state.story.resolvedChoices || [])]
+    } : null;
+    const save = { cartridge, state: {
+      ...state, rng:null,
+      usedShrines: [...state.usedShrines],
+      story: storySave
+    }};
     localStorage.setItem('rogue_llm_save', JSON.stringify(save));
     log('Game saved.','good');
   } catch(e) { log('Save failed: '+e.message,'danger'); Debug.log('Save: '+e); }
@@ -1454,6 +1692,15 @@ G.loadGame = function() {
     state.discoveryMap = state.discoveryMap||{};
     state.safetyNetUsed= state.safetyNetUsed||false;
     state.difficulty   = state.difficulty||'relaxed';
+    // Restore new fields (backward compat with old saves)
+    state.player.equipment = state.player.equipment ||
+      { weapon:null, shield:null, helmet:null, breastplate:null, relic:null };
+    if (state.story) {
+      state.story.completedStages = new Set(state.story.completedStages||[]);
+      state.story.resolvedChoices = new Set(state.story.resolvedChoices||[]);
+    } else {
+      state.story = { stage:0, completedStages:new Set(), resolvedChoices:new Set() };
+    }
     currentDifficulty  = state.difficulty;
     G.setDifficulty(currentDifficulty);
     updateFog(); render(); renderSidePanels();
@@ -1551,47 +1798,89 @@ Return ONLY valid JSON. No markdown. No explanation. No code blocks. Just the JS
 
 ${themeSection}
 
+WORLD DESIGN PHILOSOPHY:
+Design this world like a compact Dwarf Fortress history compressed into a phone roguelike cartridge:
+factions have old conflicts and grievances, artifacts have provenance, rooms reveal history in stages,
+and the player eventually makes a consequential choice that resolves (or deepens) a core tension.
+Early floors feel mysterious. Later floors reveal the real stakes. The finale offers 3-4 genuine choices.
+
 SCHEMA (follow exactly):
 {
-  "schema_version": "0.4",
+  "schema_version": "0.5",
   "title": "string",
   "genre": "string",
   "premise": "string (1-2 vivid sentences)",
   "tone": ["string"],
-  "laws_of_reality": ["string — weird specific rules of this world, 3-5 items"],
+  "laws_of_reality": ["string — weird specific rules, 3-5 items"],
+  "world_history": ["string — 3-4 historical facts, each referencing a specific faction or artifact"],
   "player": { "name":"string","max_hp":30,"max_focus":12,"attack":5,"defense":1,"hunger":80,"glyph":"@" },
   "powers": [{ "id":"snake_case","name":"string","cost":4,"description":"string","effect":{"type":"...","amount":0} }],
   "factions": [{ "id":"snake_case","name":"string","reputation":0,"agenda":"string" }],
   "creatures": [{ "id":"snake_case","name":"string","glyph":"single char","hp":8,"attack":3,"defense":0,"behavior":"chase|guard|patrol","tags":["string"] }],
-  "items": [{ "id":"snake_case","name":"string","glyph":"single char","kind":"key|food|potion|relic|weapon|armor|focus","description":"string","rarity":1,"effect":{"type":"...","amount":0} }],
+  "items": [
+    CONSUMABLES: { "id":"snake_case","name":"string","glyph":"char","kind":"food|potion|focus|key|relic|quest","description":"string","rarity":1,"effect":{"type":"...","amount":0} },
+    EQUIPMENT:   { "id":"snake_case","name":"string","glyph":"char","kind":"weapon|shield|helmet|breastplate|relic","slot":"weapon|shield|helmet|breastplate|relic","description":"string","rarity":2,"stats":{"attack":0,"defense":0,"max_hp":0,"max_focus":0},"effect":{"type":"none"} },
+    QUEST ITEMS: { "id":"snake_case","name":"string","glyph":"char","kind":"quest","description":"string","rarity":3,"effect":{"type":"none"} }
+  ],
   "rooms": [{ "title":"string","description":"string (1-2 evocative sentences)" }],
   "events": [{ "id":"snake_case","text":"string","effect":{"type":"...","amount":0,"faction":"snake_case"} }],
-  "hazards": [{ "id":"snake_case","name":"string","glyph":"single char","effect":{"type":"damage","amount":1} }],
-  "shrines": [{ "id":"snake_case","name":"string","glyph":"single char","effect":{"type":"heal","amount":6} }],
+  "hazards": [{ "id":"snake_case","name":"string","glyph":"char","effect":{"type":"damage","amount":1} }],
+  "shrines": [{ "id":"snake_case","name":"string","glyph":"char","effect":{"type":"heal","amount":6} }],
+  "lore": [{ "stage":0,"text":"string — a short revelation gated by story stage (stage 0-3)" }],
+  "artifacts": [{ "id":"snake_case","name":"string","description":"string","stage":1 }],
+  "objective": {
+    "title": "string — the overall goal",
+    "description": "string",
+    "stages": [
+      { "id":"snake_case","title":"string — current goal shown to player",
+        "trigger":{"type":"auto|depth|item","value":"number or item_id"},
+        "on_complete":{"add_lore":"string — revelation when stage completes"} }
+    ]
+  },
+  "choices": [{
+    "id":"snake_case","stage":3,
+    "title":"string — choice heading","text":"string — 2-3 sentences of context",
+    "options":[{
+      "label":"string (short)","result":"string — consequence flavor",
+      "effects":[{"type":"...","amount":0,"faction":"snake_case"}],
+      "advance_stage":true
+    }]
+  }],
   "quest_hooks": ["string — specific, weird, actionable"],
-  "endings": [{ "id":"snake_case","text":"string — 2-3 sentences specific to this world" }]
+  "endings": [{ "id":"snake_case","text":"string — 2-3 sentences, specific to this world" }]
 }
 
 LEGAL EFFECT TYPES (ONLY these, no others):
 heal, damage, focus_change, hunger_change, add_key, reveal_map,
 attack_bonus, defense_bonus, max_hp_bonus, max_focus_bonus,
-reputation_change, summon, teleport, cleanse, light_change
+reputation_change, summon, teleport, cleanse, light_change, none
+
+EQUIPMENT STAT GUIDELINES:
+- weapon: attack 2-4, others 0
+- shield: defense 1-3, others 0
+- helmet: max_focus 2-4, others 0
+- breastplate: defense 1-2 and/or max_hp 5-10
+- relic: max_focus 1-3 or small max_hp bonus
+
+STORY STAGE GUIDELINES:
+- Use 3-4 stages. Stage triggers: type "auto" fires at game start, type "depth" fires at depth N, type "item" fires when a quest item is picked up.
+- One choice event at stage 3-4 with 3-4 options, each advancing story and applying effects.
+- Lore entries: one per stage (stage 0 = atmospheric, stage 1-3 = deepening revelation).
 
 BALANCE — keep it gentle and exploratory:
 - player max_hp: 25-40, attack: 4-8, defense: 1-3, hunger: 70-100
 - creatures: hp 4-20, attack 2-8, defense 0-4 (keep early creatures weak)
-- At least half of items should be food, potion, or focus kinds
-- At least 3 events should be positive (heal, focus+, hunger+, reputation+)
-- Damage events: max 4. Hazard damage: 1-2. Shrine effects: heal 6-12 or focus 4-8
+- At least half of items should be food, potion, focus, or key kinds
+- At least 3 events should be positive. Damage events max 4. Hazard damage 1-2.
+- Include 1-2 quest items, 1 of each equipment slot (5 items)
 
 MINIMUM CONTENT:
-4 factions, 6 creatures, 8 items, 10 rooms, 8 events, 2 hazards, 2 shrines,
-3 powers, 5 quest_hooks, 3 endings
+4 factions, 6 creatures, 13 items (6 consumables + 5 equipment + 2 quest), 10 rooms, 8 events,
+2 hazards, 2 shrines, 3 powers, 5 quest_hooks, 3 endings, 4 lore entries, 4 story stages, 1 choice
 
 STYLE:
-- Room descriptions: evocative, make the player want to explore
-- Laws of reality: strange, specific, consistent
-- Quest hooks: feel achievable in a dungeon crawl, reference specific factions/creatures
+- Names should be thematically specific, not generic ("Coroner's Ledger", not "Ancient Tome")
+- Room descriptions: evocative, reference factions, artifacts, or history
 - Endings: 1 triumphant, 1 ambiguous, 1 strange-but-okay
 - IDs: snake_case only
 - Return JSON only — nothing before or after the opening brace`;
@@ -1610,14 +1899,22 @@ function render() {
   if (!state) return;
   const p=state.player;
 
-  // Stats
-  document.getElementById('s-hp').textContent    = `${p.hp}/${p.max_hp}`;
-  document.getElementById('s-fp').textContent    = `${p.focus}/${p.max_focus}`;
+  // Stats (include equipment bonuses)
+  document.getElementById('s-hp').textContent    = `${p.hp}/${effectiveMaxHP()}`;
+  document.getElementById('s-fp').textContent    = `${p.focus}/${effectiveMaxFocus()}`;
   document.getElementById('s-hng').textContent   = p.hunger;
-  document.getElementById('s-atk').textContent   = p.attack+(p.attack_bonus||0);
-  document.getElementById('s-def').textContent   = p.defense+(p.defense_bonus||0);
+  document.getElementById('s-atk').textContent   = p.attack+(p.attack_bonus||0)+equipBonus('attack');
+  document.getElementById('s-def').textContent   = p.defense+(p.defense_bonus||0)+equipBonus('defense');
   document.getElementById('s-keys').textContent  = p.keys;
   document.getElementById('s-depth').textContent = state.depth;
+
+  // Objective bar
+  const stages  = cartridge.objective?.stages || [];
+  const nextStg = stages.find(s => !state.story?.completedStages?.has(s.id));
+  document.getElementById('obj-bar').textContent =
+    nextStg ? `◆ ${nextStg.title}` :
+    cartridge.objective ? `◆ ${cartridge.objective.title} — complete` :
+    '◆ Explore the dungeon';
 
   // Stair banner
   const onStairs = state.map[p.y][p.x]===TILE.STAIRS_DOWN;
@@ -1686,15 +1983,50 @@ function renderSidePanels() {
 }
 
 function renderInventory() {
-  const inv=state.player.inventory;
-  document.getElementById('inv-count').textContent=inv.length?`(${inv.length})`:'(empty)';
-  const el=document.getElementById('inventory-list');
-  if (!inv.length) { el.innerHTML='<em style="color:var(--muted)">Nothing carried.</em>'; return; }
-  el.innerHTML=inv.map((it,i)=>
-    `<div class="inv-item" onclick="G._useItemIdx(${i})" style="cursor:pointer">
-      <span class="inv-glyph">${it.glyph}</span>
-      <div style="flex:1"><div class="inv-name">${it.name}</div><div class="inv-kind">${it.kind} — ${it.description||''}</div></div>
-    </div>`).join('');
+  const p   = state.player;
+  const inv = p.inventory;
+  const eq  = p.equipment;
+  const slotMeta = [
+    ['weapon','⚔','Weapon'], ['shield','🛡','Shield'],
+    ['helmet','⛑','Helmet'], ['breastplate','🧥','Chest'], ['relic','🧿','Relic']
+  ];
+  const equippedCount = slotMeta.filter(([s])=>eq[s]).length;
+  document.getElementById('inv-count').textContent =
+    (inv.length||equippedCount) ? `(${inv.length} carried, ${equippedCount} equipped)` : '(empty)';
+
+  let html = '<div class="equip-slots">';
+  for (const [slot, icon, label] of slotMeta) {
+    const item = eq[slot];
+    if (item) {
+      const sb = item.stats ? Object.entries(item.stats)
+        .filter(([,v])=>v>0).map(([k,v])=>`+${v} ${k.replace('max_','')}`)
+        .join(' ') : '';
+      html += `<div class="equip-slot filled" onclick="G._unequipSlot('${slot}')" title="Tap to unequip">
+        <span class="inv-glyph">${item.glyph}</span>
+        <span class="equip-slot-label">${icon} ${label}</span>
+        <div style="flex:1;font-size:13px">${item.name}</div>
+        ${sb ? `<span class="equip-badge">${sb}</span>` : ''}
+      </div>`;
+    } else {
+      html += `<div class="equip-slot empty"><span class="equip-slot-label">${icon} ${label}</span><span>—</span></div>`;
+    }
+  }
+  html += '</div>';
+
+  if (inv.length) {
+    html += `<div style="font-size:11px;color:var(--muted);margin:4px 0 3px">Carried:</div>`;
+    html += inv.map((it,i) => {
+      const isEquip = !!(it.slot || EQUIPMENT_SLOTS.has(it.kind));
+      return `<div class="inv-item" onclick="G._useItemIdx(${i})" style="cursor:pointer">
+        <span class="inv-glyph">${it.glyph}</span>
+        <div style="flex:1"><div class="inv-name">${it.name}</div><div class="inv-kind">${it.description||it.kind}</div></div>
+        <span style="font-size:11px;color:var(--accent)">${isEquip?'equip':'use'}</span>
+      </div>`;
+    }).join('');
+  } else if (!equippedCount) {
+    html += '<em style="color:var(--muted)">Nothing carried or equipped.</em>';
+  }
+  document.getElementById('inventory-list').innerHTML = html;
 }
 
 function renderFactions() {
