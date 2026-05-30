@@ -20,12 +20,12 @@
   --mp:        #3498db;
   --hunger:    #e67e22;
   --discovery: #5fb8d4;
-  --cell:      32px;
+  --cell:      min(30px, calc((100vw - 12px) / 13));
   --font:      'Courier New', Courier, monospace;
 }
 html, body {
   height: 100%; background: var(--bg); color: var(--text);
-  font-family: var(--font); font-size: 15px; line-height: 1.4; overflow-x: hidden;
+  font-family: var(--font); font-size: 15px; line-height: 1.4; overflow: hidden;
 }
 button {
   font-family: var(--font); font-size: 14px; background: var(--surface); color: var(--text);
@@ -42,13 +42,17 @@ input, textarea, select {
 }
 textarea { resize: vertical; width: 100%; }
 
-#app { display: flex; flex-direction: column; min-height: 100vh; max-width: 600px; margin: 0 auto; }
+#app {
+  display: flex; flex-direction: column;
+  height: 100dvh; max-width: 600px; margin: 0 auto; overflow: hidden;
+}
 
 /* Header */
 #header {
-  position: sticky; top: 0; z-index: 100; background: var(--bg);
-  border-bottom: 1px solid var(--border); padding: 8px 12px 6px;
+  z-index: 100; background: var(--bg);
+  border-bottom: 1px solid var(--border); padding: 6px 12px 4px;
   display: flex; justify-content: space-between; align-items: flex-start;
+  flex-shrink: 0;
 }
 #header-left h1 { font-size: 18px; color: var(--accent); letter-spacing: 2px; }
 #premise-text { font-size: 12px; color: var(--text-dim); margin-top: 2px; max-width: 380px; }
@@ -61,8 +65,9 @@ textarea { resize: vertical; width: 100%; }
 
 /* Stats bar */
 #stats-bar {
-  display: flex; flex-wrap: wrap; gap: 6px 14px; padding: 8px 12px;
+  display: flex; flex-wrap: wrap; gap: 4px 12px; padding: 5px 12px;
   background: var(--surface); border-bottom: 1px solid var(--border); font-size: 13px;
+  flex-shrink: 0;
 }
 .stat { display: flex; align-items: center; gap: 4px; }
 .stat-label { color: var(--muted); font-size: 11px; }
@@ -74,10 +79,11 @@ textarea { resize: vertical; width: 100%; }
 .stat-keys  { color: #f1c40f; }
 
 /* Map */
-#map-area { display: flex; justify-content: center; padding: 10px 6px 4px; }
+#map-area { display: flex; justify-content: center; padding: 6px 6px 2px; flex-shrink: 0; }
 #map-canvas {
   display: grid; gap: 0; font-size: 17px; line-height: 1;
-  border: 1px solid var(--border); background: #080808; cursor: default;
+  border: 1px solid var(--border); background: #080808; cursor: pointer;
+  touch-action: manipulation;
 }
 .cell {
   width: var(--cell); height: var(--cell);
@@ -96,25 +102,25 @@ textarea { resize: vertical; width: 100%; }
 .cell-shrine    { color: #3498db; }
 .cell-discovery { color: var(--discovery); }
 
-/* D-pad */
-#dpad-area { padding: 8px 12px; display: flex; gap: 12px; align-items: center; justify-content: center; }
-#dpad {
-  display: grid; grid-template-columns: repeat(3, 52px); grid-template-rows: repeat(3, 52px); gap: 4px;
+/* Action bar — horizontal row of action buttons */
+#action-bar {
+  display: flex; gap: 4px; padding: 4px 6px;
+  border-top: 1px solid var(--border); flex-shrink: 0;
 }
-#dpad button { width: 52px; height: 52px; font-size: 22px; padding: 0; }
-#dpad .empty  { background: transparent; border: none; cursor: default; }
-#action-btns { display: flex; flex-direction: column; gap: 6px; }
-#action-btns button { font-size: 12px; padding: 9px 12px; min-width: 78px; }
+#action-bar button { flex: 1; font-size: 12px; padding: 10px 2px; }
 
 /* Stair banner — shown only when player is on stairs */
-#stair-banner { display: none; padding: 4px 12px 2px; }
-#stair-banner button { width: 100%; font-size: 15px; padding: 12px; letter-spacing: 1px; }
+#stair-banner { display: none; padding: 2px 6px; flex-shrink: 0; }
+#stair-banner button { width: 100%; font-size: 15px; padding: 10px; letter-spacing: 1px; }
+
+/* Scrollable zone for log + controls + panels */
+#scroll-zone { flex: 1; overflow-y: auto; }
 
 /* Log */
-#log-area { padding: 0 12px 8px; }
+#log-area { padding: 4px 12px 6px; }
 #log {
   background: #0a0a0a; border: 1px solid var(--border); border-radius: 4px;
-  padding: 8px 10px; height: 110px; overflow-y: auto; font-size: 13px;
+  padding: 8px 10px; height: 90px; overflow-y: auto; font-size: 13px;
 }
 .log-line           { color: var(--text-dim); }
 .log-line.important { color: var(--text); }
@@ -220,41 +226,32 @@ textarea { resize: vertical; width: 100%; }
 
   <div id="map-area"><div id="map-canvas"></div></div>
 
-  <div id="dpad-area">
-    <div id="dpad">
-      <div class="empty"></div>
-      <button onclick="G.move(0,-1)">▲</button>
-      <div class="empty"></div>
-      <button onclick="G.move(-1,0)">◀</button>
-      <button onclick="G.wait()">·</button>
-      <button onclick="G.move(1,0)">▶</button>
-      <div class="empty"></div>
-      <button onclick="G.move(0,1)">▼</button>
-      <div class="empty"></div>
-    </div>
-    <div class="spacer"></div>
-    <div id="action-btns">
-      <button class="primary" onclick="G.confirmNewRun()">New Run</button>
-      <button onclick="G.useItem()">Use Item</button>
-      <button onclick="G.usePower()">Power</button>
-      <button onclick="G.inspect()">Inspect</button>
-      <button onclick="G.retreat()">Retreat</button>
-    </div>
-  </div>
-
   <!-- Shown only when player stands on stairs -->
   <div id="stair-banner">
-    <button class="primary" onclick="G.descend()">▼ Descend</button>
+    <button class="primary" onclick="G.descend()">▼ Descend to next floor</button>
   </div>
 
+  <!-- Tap map to move. These buttons handle non-movement actions. -->
+  <div id="action-bar">
+    <button onclick="G.wait()">Wait ·</button>
+    <button onclick="G.useItem()">Item</button>
+    <button onclick="G.usePower()">Power</button>
+    <button onclick="G.inspect()">Look</button>
+    <button onclick="G.retreat()">Retreat</button>
+  </div>
+
+  <div id="scroll-zone">
   <div id="log-area"><div id="log"></div></div>
 
-  <div style="display:flex;gap:8px;padding:4px 12px 8px;flex-wrap:wrap;align-items:center;">
+  <div style="display:flex;gap:6px;padding:4px 12px 8px;flex-wrap:wrap;align-items:center;">
     <button onclick="G.saveGame()">Save</button>
     <button onclick="G.loadGame()">Load</button>
-    <div style="margin-left:auto;display:flex;gap:4px;">
+    <div style="display:flex;gap:4px;margin-left:4px;">
       <button id="mode-relaxed" class="mode-btn active" onclick="G.setDifficulty('relaxed')" title="Forgiving and exploratory">Relaxed</button>
       <button id="mode-classic" class="mode-btn"        onclick="G.setDifficulty('classic')" title="Traditional roguelike">Classic</button>
+    </div>
+    <div style="margin-left:auto;">
+      <button class="primary" onclick="G.confirmNewRun()">New Run</button>
     </div>
   </div>
 
@@ -320,6 +317,7 @@ textarea { resize: vertical; width: 100%; }
     <div class="panel-body" id="debug-body"><div id="debug-log"></div></div>
   </div>
 
+  </div><!-- #scroll-zone -->
 </div><!-- #app -->
 
 <div id="modal-overlay">
@@ -1729,21 +1727,18 @@ document.addEventListener('keydown', function(e) {
   }
 });
 
-// ── Touch swipe on map ────────────────────────────────────────
-(function() {
-  let tx0, ty0;
-  const el=document.getElementById('map-area');
-  el.addEventListener('touchstart', e=>{ tx0=e.touches[0].clientX; ty0=e.touches[0].clientY; }, {passive:true});
-  el.addEventListener('touchend', e=>{
-    if (tx0===undefined) return;
-    const dx=e.changedTouches[0].clientX-tx0, dy=e.changedTouches[0].clientY-ty0;
-    const adx=Math.abs(dx), ady=Math.abs(dy);
-    if (adx<12&&ady<12) { G.wait(); }
-    else if (adx>ady)   { G.move(dx>0?1:-1,0); }
-    else                { G.move(0,dy>0?1:-1); }
-    tx0=ty0=undefined;
-  }, {passive:true});
-})();
+// ── Tap map to move ───────────────────────────────────────────
+document.getElementById('map-canvas').addEventListener('click', e => {
+  if (!state || state.gameOver) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const col = Math.floor((e.clientX - rect.left) / (rect.width  / GRID));
+  const row = Math.floor((e.clientY - rect.top)  / (rect.height / GRID));
+  const dx = col - state.player.x;
+  const dy = row - state.player.y;
+  if (dx === 0 && dy === 0) { G.wait(); return; }
+  if (Math.abs(dx) >= Math.abs(dy)) G.move(Math.sign(dx), 0);
+  else G.move(0, Math.sign(dy));
+});
 
 // ── Boot ──────────────────────────────────────────────────────
 (function boot() {
