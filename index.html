@@ -1,0 +1,1617 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Rogue LLM</title>
+<style>
+/* ── Reset & base ─────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg:       #0d0d0d;
+  --surface:  #1a1a1a;
+  --border:   #333;
+  --accent:   #c8a84b;
+  --danger:   #c0392b;
+  --safe:     #27ae60;
+  --focus:    #2980b9;
+  --muted:    #888;
+  --text:     #e8e6e0;
+  --text-dim: #aaa;
+  --hp:       #e74c3c;
+  --mp:       #3498db;
+  --hunger:   #e67e22;
+  --cell:     32px;
+  --font:     'Courier New', Courier, monospace;
+}
+html, body {
+  height: 100%;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 15px;
+  line-height: 1.4;
+  overflow-x: hidden;
+}
+button {
+  font-family: var(--font);
+  font-size: 14px;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px 14px;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+}
+button:active { background: #2a2a2a; transform: scale(0.97); }
+button.primary { background: #2c2000; border-color: var(--accent); color: var(--accent); }
+button.primary:active { background: #3a2d00; }
+button.danger  { background: #200000; border-color: var(--danger); color: var(--danger); }
+input, textarea, select {
+  font-family: var(--font);
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 6px 10px;
+  font-size: 13px;
+}
+textarea { resize: vertical; width: 100%; }
+
+/* ── Layout ───────────────────────────────────────────────────── */
+#app { display: flex; flex-direction: column; min-height: 100vh; max-width: 600px; margin: 0 auto; }
+
+/* ── Header ───────────────────────────────────────────────────── */
+#header {
+  position: sticky; top: 0; z-index: 100;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  padding: 8px 12px 6px;
+}
+#header h1 { font-size: 18px; color: var(--accent); letter-spacing: 2px; }
+#premise-text { font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+
+/* ── Stats bar ────────────────────────────────────────────────── */
+#stats-bar {
+  display: flex; flex-wrap: wrap; gap: 6px 14px;
+  padding: 8px 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  font-size: 13px;
+}
+.stat { display: flex; align-items: center; gap: 4px; }
+.stat-label { color: var(--muted); font-size: 11px; }
+.stat-val   { font-weight: bold; }
+.stat-hp    { color: var(--hp); }
+.stat-mp    { color: var(--mp); }
+.stat-hunger{ color: var(--hunger); }
+.stat-depth { color: var(--accent); }
+.stat-keys  { color: #f1c40f; }
+
+/* ── Map area ─────────────────────────────────────────────────── */
+#map-area { display: flex; justify-content: center; padding: 10px 6px 4px; }
+#map-canvas {
+  display: grid;
+  gap: 0;
+  font-size: 17px;
+  line-height: 1;
+  border: 1px solid var(--border);
+  background: #080808;
+  cursor: default;
+}
+.cell {
+  width: var(--cell); height: var(--cell);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px;
+  user-select: none;
+}
+/* tile types */
+.cell-floor  { color: #444; }
+.cell-wall   { color: #666; background: #111; }
+.cell-door   { color: #c8a84b; }
+.cell-stairs { color: #a855f7; }
+.cell-dark   { color: #111; background: #080808; }
+.cell-player { color: #fff; font-weight: bold; }
+.cell-monster{ color: #e74c3c; }
+.cell-item   { color: #f1c40f; }
+.cell-hazard { color: #e67e22; }
+.cell-shrine { color: #3498db; }
+
+/* ── Touch controls ───────────────────────────────────────────── */
+#dpad-area { padding: 8px 12px; display: flex; gap: 12px; align-items: center; justify-content: center; }
+#dpad {
+  display: grid;
+  grid-template-columns: repeat(3, 52px);
+  grid-template-rows: repeat(3, 52px);
+  gap: 4px;
+}
+#dpad button { width: 52px; height: 52px; font-size: 22px; padding: 0; }
+#dpad .empty { background: transparent; border: none; cursor: default; }
+#action-btns { display: flex; flex-direction: column; gap: 8px; }
+#action-btns button { font-size: 13px; padding: 10px 14px; min-width: 80px; }
+
+/* ── Log ──────────────────────────────────────────────────────── */
+#log-area { padding: 0 12px 8px; }
+#log {
+  background: #0a0a0a;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px 10px;
+  height: 100px;
+  overflow-y: auto;
+  font-size: 13px;
+}
+.log-line { color: var(--text-dim); }
+.log-line.important { color: var(--text); }
+.log-line.danger    { color: var(--hp); }
+.log-line.good      { color: var(--safe); }
+.log-line.accent    { color: var(--accent); }
+
+/* ── Collapsible panels ───────────────────────────────────────── */
+.panel { border: 1px solid var(--border); border-radius: 6px; margin: 6px 12px; overflow: hidden; }
+.panel-header {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 10px 14px;
+  background: var(--surface);
+  cursor: pointer;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  font-size: 13px;
+}
+.panel-header span { color: var(--muted); font-size: 12px; }
+.panel-body { padding: 10px 14px; background: #0f0f0f; display: none; }
+.panel-body.open { display: block; }
+
+/* ── Inventory ────────────────────────────────────────────────── */
+#inventory-list { display: flex; flex-direction: column; gap: 6px; }
+.inv-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 8px;
+  background: var(--surface);
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  font-size: 13px;
+}
+.inv-glyph { font-size: 18px; width: 24px; text-align: center; }
+.inv-name  { flex: 1; }
+.inv-kind  { color: var(--muted); font-size: 11px; }
+
+/* ── Faction panel ────────────────────────────────────────────── */
+#faction-list { display: flex; flex-direction: column; gap: 6px; }
+.faction-row {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 13px; padding: 4px 0;
+}
+.faction-name { flex: 1; }
+.faction-rep-bar {
+  width: 80px; height: 8px;
+  background: var(--border); border-radius: 4px; overflow: hidden;
+}
+.faction-rep-fill { height: 100%; border-radius: 4px; transition: width 0.3s; }
+.rep-pos { background: var(--safe); }
+.rep-neg { background: var(--danger); }
+.faction-rep-val { width: 30px; text-align: right; font-size: 12px; color: var(--muted); }
+
+/* ── Power selection ──────────────────────────────────────────── */
+#power-list { display: flex; flex-direction: column; gap: 6px; }
+.power-btn {
+  text-align: left;
+  padding: 8px 12px;
+  width: 100%;
+  display: flex; gap: 8px; align-items: center;
+}
+.power-cost { color: var(--mp); font-size: 12px; margin-left: auto; }
+
+/* ── Cartridge panel ──────────────────────────────────────────── */
+#cartridge-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+#cartridge-json { height: 160px; font-size: 11px; }
+
+/* ── LLM prompt panel ─────────────────────────────────────────── */
+#llm-prompt { height: 200px; font-size: 11px; }
+#copy-prompt-btn { margin-top: 8px; }
+
+/* ── Error/debug panel ────────────────────────────────────────── */
+#debug-panel { margin: 6px 12px 12px; }
+#debug-panel .panel-body { max-height: 150px; overflow-y: auto; }
+#debug-log { font-size: 11px; color: #c0392b; }
+.debug-line { padding: 1px 0; border-bottom: 1px solid #1a0000; }
+
+/* ── Modal overlay ────────────────────────────────────────────── */
+#modal-overlay {
+  display: none;
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(0,0,0,0.85);
+  align-items: center; justify-content: center;
+  padding: 20px;
+}
+#modal-overlay.open { display: flex; }
+#modal-box {
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 8px;
+  padding: 24px;
+  max-width: 420px; width: 100%;
+  text-align: center;
+}
+#modal-box h2 { color: var(--accent); margin-bottom: 12px; }
+#modal-box p  { color: var(--text-dim); font-size: 14px; margin-bottom: 20px; line-height: 1.6; }
+#modal-btns   { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+/* ── Utility ──────────────────────────────────────────────────── */
+.hidden { display: none !important; }
+.spacer { flex: 1; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- HEADER -->
+  <div id="header">
+    <h1 id="game-title">ROGUE LLM</h1>
+    <div id="premise-text">Loading world…</div>
+  </div>
+
+  <!-- STATS BAR -->
+  <div id="stats-bar">
+    <div class="stat"><span class="stat-label">HP</span> <span class="stat-val stat-hp" id="s-hp">—</span></div>
+    <div class="stat"><span class="stat-label">FCS</span><span class="stat-val stat-mp"  id="s-fp">—</span></div>
+    <div class="stat"><span class="stat-label">HNG</span><span class="stat-val stat-hunger" id="s-hng">—</span></div>
+    <div class="stat"><span class="stat-label">ATK</span><span class="stat-val" id="s-atk">—</span></div>
+    <div class="stat"><span class="stat-label">DEF</span><span class="stat-val" id="s-def">—</span></div>
+    <div class="stat"><span class="stat-label">KEYS</span><span class="stat-val stat-keys" id="s-keys">—</span></div>
+    <div class="stat"><span class="stat-label">DEPTH</span><span class="stat-val stat-depth" id="s-depth">—</span></div>
+  </div>
+
+  <!-- MAP -->
+  <div id="map-area">
+    <div id="map-canvas"></div>
+  </div>
+
+  <!-- D-PAD + ACTION BUTTONS -->
+  <div id="dpad-area">
+    <div id="dpad">
+      <div class="empty"></div>
+      <button id="btn-up"   onclick="G.move(0,-1)">▲</button>
+      <div class="empty"></div>
+      <button id="btn-left" onclick="G.move(-1,0)">◀</button>
+      <button id="btn-wait" onclick="G.wait()">·</button>
+      <button id="btn-right"onclick="G.move(1,0)">▶</button>
+      <div class="empty"></div>
+      <button id="btn-down" onclick="G.move(0,1)">▼</button>
+      <div class="empty"></div>
+    </div>
+    <div class="spacer"></div>
+    <div id="action-btns">
+      <button class="primary" onclick="G.newRun()">New Run</button>
+      <button onclick="G.useItem()">Use Item</button>
+      <button onclick="G.usePower()">Power</button>
+      <button onclick="G.inspect()">Inspect</button>
+    </div>
+  </div>
+
+  <!-- LOG -->
+  <div id="log-area">
+    <div id="log"></div>
+  </div>
+
+  <!-- SECONDARY BUTTONS ROW -->
+  <div style="display:flex;gap:8px;padding:4px 12px 8px;flex-wrap:wrap;">
+    <button onclick="G.saveGame()">Save</button>
+    <button onclick="G.loadGame()">Load</button>
+    <button class="danger" onclick="G.confirmNewRun()">New Run</button>
+  </div>
+
+  <!-- INVENTORY PANEL -->
+  <div class="panel" id="inv-panel">
+    <div class="panel-header" onclick="togglePanel('inv-panel')">
+      Inventory <span id="inv-count">(empty)</span>
+    </div>
+    <div class="panel-body" id="inv-body">
+      <div id="inventory-list"><em style="color:var(--muted)">Nothing carried.</em></div>
+    </div>
+  </div>
+
+  <!-- POWERS PANEL -->
+  <div class="panel" id="powers-panel">
+    <div class="panel-header" onclick="togglePanel('powers-panel')">
+      Powers
+    </div>
+    <div class="panel-body" id="powers-body">
+      <div id="power-list"><em style="color:var(--muted)">No powers.</em></div>
+    </div>
+  </div>
+
+  <!-- FACTIONS PANEL -->
+  <div class="panel" id="factions-panel">
+    <div class="panel-header" onclick="togglePanel('factions-panel')">
+      Factions
+    </div>
+    <div class="panel-body" id="factions-body">
+      <div id="faction-list"><em style="color:var(--muted)">No factions.</em></div>
+    </div>
+  </div>
+
+  <!-- CARTRIDGE PANEL -->
+  <div class="panel" id="cart-panel">
+    <div class="panel-header" onclick="togglePanel('cart-panel')">
+      World Cartridge
+    </div>
+    <div class="panel-body" id="cart-body">
+      <div id="cartridge-actions">
+        <button class="primary" onclick="G.exportCartridge()">Export JSON</button>
+        <button onclick="G.importCartridgePrompt()">Import JSON</button>
+        <button onclick="G.loadDefaultCartridge()">Load Default</button>
+      </div>
+      <textarea id="cartridge-json" placeholder="Paste cartridge JSON here then click Import JSON…"></textarea>
+    </div>
+  </div>
+
+  <!-- LLM PROMPT PANEL -->
+  <div class="panel" id="llm-panel">
+    <div class="panel-header" onclick="togglePanel('llm-panel')">
+      Generate World (LLM Prompt)
+    </div>
+    <div class="panel-body" id="llm-body">
+      <p style="font-size:12px;color:var(--text-dim);margin-bottom:8px;">Copy this prompt into ChatGPT, Claude, Gemma, etc. Paste the returned JSON into the cartridge field above.</p>
+      <textarea id="llm-prompt" readonly></textarea>
+      <button id="copy-prompt-btn" onclick="G.copyPrompt()">Copy Prompt</button>
+    </div>
+  </div>
+
+  <!-- DEBUG PANEL -->
+  <div class="panel" id="debug-panel">
+    <div class="panel-header" onclick="togglePanel('debug-panel')">
+      Error Log <span id="err-count"></span>
+    </div>
+    <div class="panel-body" id="debug-body">
+      <div id="debug-log"></div>
+    </div>
+  </div>
+
+</div><!-- #app -->
+
+<!-- MODAL -->
+<div id="modal-overlay">
+  <div id="modal-box">
+    <h2 id="modal-title">Title</h2>
+    <p  id="modal-body">Body</p>
+    <div id="modal-btns"></div>
+  </div>
+</div>
+
+<script>
+'use strict';
+
+// ════════════════════════════════════════════════════════════════
+//  DEBUG / ERROR PANEL
+// ════════════════════════════════════════════════════════════════
+const Debug = (function() {
+  let count = 0;
+  function log(msg) {
+    count++;
+    const el = document.getElementById('debug-log');
+    const line = document.createElement('div');
+    line.className = 'debug-line';
+    line.textContent = `[${count}] ${msg}`;
+    el.prepend(line);
+    const cnt = document.getElementById('err-count');
+    if (cnt) cnt.textContent = `(${count})`;
+  }
+  window.onerror = function(msg, src, line) {
+    log(`JS ERROR: ${msg} @ ${src}:${line}`);
+    return false;
+  };
+  window.onunhandledrejection = function(e) {
+    log(`PROMISE: ${e.reason}`);
+  };
+  return { log };
+})();
+
+// ════════════════════════════════════════════════════════════════
+//  CONSTANTS
+// ════════════════════════════════════════════════════════════════
+const GRID = 13;
+const TILE = { WALL:0, FLOOR:1, DOOR:2, LOCKED_DOOR:3, STAIRS_DOWN:4, HAZARD:5, SHRINE:6 };
+const EFFECT_TYPES = new Set([
+  'heal','damage','focus_change','hunger_change','add_key','reveal_map',
+  'attack_bonus','defense_bonus','max_hp_bonus','max_focus_bonus',
+  'reputation_change','summon','teleport','cleanse','light_change'
+]);
+
+// ════════════════════════════════════════════════════════════════
+//  RNG  (seeded LCG – deterministic, no external deps)
+// ════════════════════════════════════════════════════════════════
+function makePRNG(seed) {
+  let s = seed >>> 0 || 12345;
+  return {
+    next()  { s = (Math.imul(1664525, s) + 1013904223) >>> 0; return s; },
+    int(n)  { return this.next() % n; },
+    range(a,b) { return a + this.int(b - a + 1); },
+    pick(arr)  { return arr[this.int(arr.length)]; },
+    shuffle(arr) {
+      for (let i = arr.length - 1; i > 0; i--) {
+        const j = this.int(i + 1);
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+      }
+      return arr;
+    }
+  };
+}
+
+// ════════════════════════════════════════════════════════════════
+//  CARTRIDGE VALIDATION
+// ════════════════════════════════════════════════════════════════
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
+
+function validateEffect(eff, path) {
+  if (!eff || typeof eff !== 'object') return null;
+  if (!EFFECT_TYPES.has(eff.type)) {
+    throw new Error(`Illegal effect type "${eff.type}" at ${path}`);
+  }
+  return eff;
+}
+
+function validateCartridge(raw) {
+  const errors = [];
+  let c;
+  try { c = (typeof raw === 'string') ? JSON.parse(raw) : raw; }
+  catch(e) { throw new Error('Invalid JSON: ' + e.message); }
+
+  if (!c || typeof c !== 'object') throw new Error('Cartridge must be a JSON object');
+
+  // Required string fields
+  for (const f of ['title','premise']) {
+    if (!c[f] || typeof c[f] !== 'string' || !c[f].trim()) {
+      errors.push(`Missing required field: "${f}"`);
+    }
+  }
+
+  // Creatures
+  if (!Array.isArray(c.creatures) || c.creatures.length === 0) {
+    errors.push('Cartridge must have at least one creature');
+  } else {
+    c.creatures = c.creatures.map((cr, i) => {
+      if (!cr.id || !cr.name || !cr.glyph) errors.push(`Creature[${i}] missing id/name/glyph`);
+      cr.hp      = clamp(Number(cr.hp)||8, 1, 500);
+      cr.attack  = clamp(Number(cr.attack)||2, 0, 100);
+      cr.defense = clamp(Number(cr.defense)||0, 0, 50);
+      return cr;
+    });
+  }
+
+  // Items
+  if (!Array.isArray(c.items) || c.items.length === 0) {
+    errors.push('Cartridge must have at least one item');
+  } else {
+    c.items = c.items.map((it, i) => {
+      if (!it.id || !it.name) errors.push(`Item[${i}] missing id/name`);
+      it.glyph  = it.glyph || '?';
+      it.kind   = it.kind  || 'relic';
+      it.rarity = clamp(Number(it.rarity)||1, 1, 5);
+      if (it.effect) validateEffect(it.effect, `item[${it.id}].effect`);
+      return it;
+    });
+  }
+
+  // Rooms
+  if (!Array.isArray(c.rooms) || c.rooms.length === 0) {
+    errors.push('Cartridge must have at least one room');
+  }
+
+  // Events
+  c.events = Array.isArray(c.events) ? c.events : [];
+  c.events.forEach((ev, i) => {
+    if (ev.effect) validateEffect(ev.effect, `event[${ev.id||i}].effect`);
+  });
+
+  // Hazards
+  c.hazards = Array.isArray(c.hazards) ? c.hazards : [];
+  c.hazards.forEach((h, i) => {
+    if (h.effect) validateEffect(h.effect, `hazard[${h.id||i}].effect`);
+  });
+
+  // Shrines
+  c.shrines = Array.isArray(c.shrines) ? c.shrines : [];
+  c.shrines.forEach((sh, i) => {
+    if (sh.effect) validateEffect(sh.effect, `shrine[${sh.id||i}].effect`);
+  });
+
+  // Powers
+  c.powers = Array.isArray(c.powers) ? c.powers : [];
+  c.powers.forEach((p, i) => {
+    if (p.effect) validateEffect(p.effect, `power[${p.id||i}].effect`);
+    p.cost = clamp(Number(p.cost)||4, 0, 99);
+  });
+
+  // Player defaults
+  c.player = c.player || {};
+  c.player.glyph    = c.player.glyph  || '@';
+  c.player.max_hp   = clamp(Number(c.player.max_hp)||30,  5, 200);
+  c.player.max_focus= clamp(Number(c.player.max_focus)||12, 0, 100);
+  c.player.attack   = clamp(Number(c.player.attack)||5, 1, 50);
+  c.player.defense  = clamp(Number(c.player.defense)||1, 0, 30);
+  c.player.hunger   = clamp(Number(c.player.hunger)||80, 10, 300);
+
+  // Factions
+  c.factions = Array.isArray(c.factions) ? c.factions : [];
+  c.factions = c.factions.map(f => ({
+    id: f.id || 'unknown',
+    name: f.name || 'Unknown',
+    reputation: clamp(Number(f.reputation)||0, -100, 100),
+    agenda: f.agenda || ''
+  }));
+
+  // Defaults
+  c.tone          = Array.isArray(c.tone) ? c.tone : [];
+  c.laws_of_reality = Array.isArray(c.laws_of_reality) ? c.laws_of_reality : [];
+  c.quest_hooks   = Array.isArray(c.quest_hooks) ? c.quest_hooks : [];
+  c.endings       = Array.isArray(c.endings) ? c.endings : [{ id:'default', text:'Your journey ends here.' }];
+  c.genre         = c.genre || 'roguelike';
+  c.schema_version= c.schema_version || '0.4';
+
+  if (errors.length > 0) throw new Error(errors.join('\n'));
+  return c;
+}
+
+// ════════════════════════════════════════════════════════════════
+//  DEFAULT CARTRIDGE
+// ════════════════════════════════════════════════════════════════
+const DEFAULT_CARTRIDGE = {
+  schema_version: "0.4",
+  title: "The Sky Beneath Lima",
+  genre: "mythic-horror comedy",
+  premise: "A red-eye flight over Peru folds into a monastery catacomb where colonial saints, pre-Columbian huacas, airline ghosts, guano syndicates, and salt monks dispute ownership of your itinerary.",
+  tone: ["strange","wry","dangerous","mythic"],
+  laws_of_reality: [
+    "The dead maintain strong opinions about ticketing policies.",
+    "Salt is both currency and sin.",
+    "Altitude sickness and divine revelation are the same malady.",
+    "All flight schedules are aspirational."
+  ],
+  player: { name:"Stranded Passenger", max_hp:30, max_focus:12, attack:5, defense:1, hunger:80, glyph:"@" },
+  powers: [
+    { id:"boarding_pass", name:"Boarding Pass", cost:4, description:"Flash your pass—a blinding divine light reveals all entities on this floor.", effect:{ type:"reveal_map", amount:0 } },
+    { id:"salt_ward", name:"Salt Ward", cost:6, description:"Ring yourself with holy salt. Gain +3 defense for several turns.", effect:{ type:"defense_bonus", amount:3 } },
+    { id:"huaca_blessing", name:"Huaca Blessing", cost:8, description:"A stone deity lends you vigor. Heal 10 HP.", effect:{ type:"heal", amount:10 } }
+  ],
+  factions: [
+    { id:"colonial_saints", name:"Colonial Saints",  reputation:0, agenda:"Reclaim the upper catacombs for the Church of Lima." },
+    { id:"huacas",          name:"Pre-Columbian Huacas", reputation:0, agenda:"Restore the old rites before the salt runs out." },
+    { id:"airline_ghosts",  name:"Airline Ghosts",   reputation:0, agenda:"Achieve posthumous on-time arrival. Codes may vary." },
+    { id:"guano_syndicate", name:"Guano Syndicate",  reputation:0, agenda:"Monopolize all fertilizer routes, living or dead." }
+  ],
+  creatures: [
+    { id:"guano_bat",      name:"Guano Bat",          glyph:"🦇", hp:6,  attack:3, defense:0, behavior:"chase", tags:["flying","syndicate"] },
+    { id:"colonial_saint", name:"Jilted Saint",        glyph:"✝",  hp:12, attack:5, defense:2, behavior:"patrol", tags:["undead","saint"] },
+    { id:"salt_monk",      name:"Salt Monk",           glyph:"🧂", hp:10, attack:4, defense:3, behavior:"guard", tags:["monk"] },
+    { id:"airline_ghost",  name:"Airline Ghost",       glyph:"👻", hp:8,  attack:4, defense:1, behavior:"chase", tags:["ghost","airline"] },
+    { id:"huaca_idol",     name:"Animate Huaca",       glyph:"🗿", hp:18, attack:7, defense:4, behavior:"guard", tags:["stone","huaca"] },
+    { id:"guano_foreman",  name:"Guano Syndicate Foreman", glyph:"🎩", hp:22, attack:8, defense:3, behavior:"chase", tags:["boss","syndicate"] }
+  ],
+  items: [
+    { id:"altitude_tabs",   name:"Altitude Tablets",   glyph:"💊", kind:"food",   description:"Restore 8 hunger; slight euphoria.", rarity:1, effect:{ type:"hunger_change", amount:25 } },
+    { id:"pisco_flask",     name:"Pisco Flask",         glyph:"🍶", kind:"potion", description:"Heal 10 HP; the saints disapprove.", rarity:2, effect:{ type:"heal", amount:10 } },
+    { id:"gate_key",        name:"Gate Key",            glyph:"🗝", kind:"key",    description:"Opens a locked catacomb door.", rarity:2, effect:{ type:"add_key", amount:1 } },
+    { id:"cargo_manifest",  name:"Cargo Manifest",      glyph:"📋", kind:"relic",  description:"Reveal the entire floor layout.", rarity:3, effect:{ type:"reveal_map", amount:0 } },
+    { id:"salt_crucifix",   name:"Salt Crucifix",       glyph:"✝",  kind:"armor",  description:"+2 defense while held.", rarity:2, effect:{ type:"defense_bonus", amount:2 } },
+    { id:"obsidian_blade",  name:"Obsidian Blade",      glyph:"⚔",  kind:"weapon", description:"+4 attack, pre-Columbian warranty.", rarity:3, effect:{ type:"attack_bonus", amount:4 } },
+    { id:"focus_incense",   name:"Copal Incense",       glyph:"🪔", kind:"focus",  description:"Restore 8 focus.", rarity:2, effect:{ type:"focus_change", amount:8 } },
+    { id:"emergency_ration",name:"Emergency Ration",    glyph:"🥫", kind:"food",   description:"Restore 40 hunger; tastes of regret.", rarity:1, effect:{ type:"hunger_change", amount:40 } }
+  ],
+  rooms: [
+    { title:"Baggage Claim Crypt",        description:"Uncollected luggage from flights that never arrived molders in niches." },
+    { title:"Colonial Transept",          description:"Gilt saints line the walls, their expressions suggesting upgrade eligibility." },
+    { title:"Huaca Antechamber",          description:"Stone faces peer from every surface. The air tastes of maize beer." },
+    { title:"Guano Processing Hall",      description:"Vast machinery, apparently active. The smell is industrial and spiritual." },
+    { title:"Monk Dormitory",             description:"Salt-crusted bunks. Personal effects include rosaries and departure boards." },
+    { title:"Departure Lounge Eternal",   description:"Comfortable chairs, all occupied by ghosts staring at blank screens." },
+    { title:"Deep Archive",               description:"Wax cylinders record confessions in seventeen colonial languages." },
+    { title:"Salt Flat Meditation Cell",  description:"A tiny room encrusted entirely in salt. Surprisingly peaceful." },
+    { title:"Inca Relay Station",         description:"Quipu knot-messages hang from the ceiling. Some are marked URGENT." },
+    { title:"The Pilot's Ossuary",        description:"Bones of pilots arranged by airline, seniority, and accumulated miles." }
+  ],
+  events: [
+    { id:"saint_glares",    text:"A saint fixes you with a disapproving stare. The colonial faction grows wary.", effect:{ type:"reputation_change", amount:-1, faction:"colonial_saints" } },
+    { id:"bat_swarm",       text:"A guano bat swarm divebombs you for 3 damage!", effect:{ type:"damage", amount:3 } },
+    { id:"huaca_nods",      text:"An ancient idol inclines its head. The huacas are mollified.", effect:{ type:"reputation_change", amount:2, faction:"huacas" } },
+    { id:"ghost_delay",     text:"An airline ghost hands you a delay notification. You lose 2 hunger worrying about connections.", effect:{ type:"hunger_change", amount:-2 } },
+    { id:"salt_blessing",   text:"A monk blesses you with salt. Gain 5 HP.", effect:{ type:"heal", amount:5 } },
+    { id:"manifest_found",  text:"You find a torn cargo manifest. Gain 1 key.", effect:{ type:"add_key", amount:1 } },
+    { id:"syndicate_bribe", text:"A guano foreman tips you off. Guano Syndicate reputation improves.", effect:{ type:"reputation_change", amount:2, faction:"guano_syndicate" } },
+    { id:"altitude_surge",  text:"A wave of altitude-induced clarity restores 5 focus.", effect:{ type:"focus_change", amount:5 } }
+  ],
+  hazards: [
+    { id:"guano_pool", name:"Guano Pool", glyph:"~", effect:{ type:"damage", amount:1 } },
+    { id:"salt_crust", name:"Salt Crust", glyph:":", effect:{ type:"hunger_change", amount:-3 } }
+  ],
+  shrines: [
+    { id:"huaca_shrine",  name:"Huaca Shrine",  glyph:"⬟", effect:{ type:"heal", amount:8 } },
+    { id:"saint_altar",   name:"Saint Altar",   glyph:"✦", effect:{ type:"focus_change", amount:6 } }
+  ],
+  quest_hooks: [
+    "The guano syndicate has misplaced a sacred cargo crate—whoever finds it controls the eastern tunnels.",
+    "An airline ghost needs her carry-on delivered to the departure lounge. It weighs exactly as much as guilt.",
+    "The huacas will trade safe passage for three salt crucifixes, no questions asked.",
+    "A colonial saint is secretly allied with the syndicate. Proof is somewhere in the archive.",
+    "The pilot's ossuary contains a flight manifest that could close a gate—if you can read it aloud in the right room."
+  ],
+  endings: [
+    { id:"departures",  text:"You reach the surface gate just as a phantom Boeing cracks through the cloud layer. The boarding call is for you. You made it—sort of." },
+    { id:"becomes_huaca", text:"The stone in the walls has a quality. You stop moving. You stop needing to. Travelers will find you and leave small offerings, and you will be content." },
+    { id:"syndicate_heir", text:"The guano foreman's ghost shakes your hand. You inherit the eastern tunnels, a fleet of spectral bats, and a cargo manifest that never empties." }
+  ]
+};
+
+// ════════════════════════════════════════════════════════════════
+//  MAP GENERATION
+// ════════════════════════════════════════════════════════════════
+function generateMap(rng, cartridge) {
+  const W = GRID, H = GRID;
+  const grid = Array.from({ length: H }, () => new Array(W).fill(TILE.WALL));
+
+  const rooms = [];
+  const MAX_ROOMS = 7;
+  const MIN_SZ = 3, MAX_SZ = 5;
+
+  function carveRoom(x, y, w, h) {
+    for (let ry = y; ry < y + h; ry++)
+      for (let rx = x; rx < x + w; rx++)
+        grid[ry][rx] = TILE.FLOOR;
+  }
+  function carveCorridor(x1, y1, x2, y2) {
+    let cx = x1, cy = y1;
+    while (cx !== x2) { grid[cy][cx] = TILE.FLOOR; cx += (x2 > cx) ? 1 : -1; }
+    while (cy !== y2) { grid[cy][cx] = TILE.FLOOR; cy += (y2 > cy) ? 1 : -1; }
+  }
+  function rectOverlaps(a, b) {
+    return a.x < b.x+b.w+1 && a.x+a.w+1 > b.x &&
+           a.y < b.y+b.h+1 && a.y+a.h+1 > b.y;
+  }
+
+  for (let attempt = 0; attempt < 100 && rooms.length < MAX_ROOMS; attempt++) {
+    const rw = rng.range(MIN_SZ, MAX_SZ);
+    const rh = rng.range(MIN_SZ, MAX_SZ);
+    const rx = rng.range(1, W - rw - 1);
+    const ry = rng.range(1, H - rh - 1);
+    const r  = { x:rx, y:ry, w:rw, h:rh };
+    if (rooms.some(o => rectOverlaps(r, o))) continue;
+    carveRoom(rx, ry, rw, rh);
+    if (rooms.length > 0) {
+      const prev = rooms[rooms.length - 1];
+      const px = prev.x + Math.floor(prev.w/2);
+      const py = prev.y + Math.floor(prev.h/2);
+      const cx = rx + Math.floor(rw/2);
+      const cy = ry + Math.floor(rh/2);
+      // Randomly choose a door or plain corridor
+      if (rng.int(3) === 0) {
+        const midX = rng.int(2) ? cx : px;
+        const midY = midX === cx ? py : cy;
+        grid[midY][midX] = (rng.int(4) === 0) ? TILE.LOCKED_DOOR : TILE.DOOR;
+      }
+      carveCorridor(px, py, cx, cy);
+    }
+    rooms.push(r);
+  }
+
+  // Place stairs in last room
+  const last = rooms[rooms.length - 1];
+  grid[last.y + 1][last.x + 1] = TILE.STAIRS_DOWN;
+
+  // Place hazards
+  const numHazards = cartridge.hazards.length;
+  if (numHazards > 0) {
+    let placed = 0;
+    for (let attempt = 0; attempt < 200 && placed < 2; attempt++) {
+      const x = rng.range(1, W-2), y = rng.range(1, H-2);
+      if (grid[y][x] === TILE.FLOOR) { grid[y][x] = TILE.HAZARD; placed++; }
+    }
+  }
+
+  // Place shrines
+  if (cartridge.shrines.length > 0) {
+    let placed = 0;
+    for (let attempt = 0; attempt < 200 && placed < cartridge.shrines.length && placed < 2; attempt++) {
+      const x = rng.range(1, W-2), y = rng.range(1, H-2);
+      if (grid[y][x] === TILE.FLOOR) { grid[y][x] = TILE.SHRINE; placed++; }
+    }
+  }
+
+  // Player start: center of first room
+  const first = rooms[0];
+  const playerStart = { x: first.x + Math.floor(first.w/2), y: first.y + Math.floor(first.h/2) };
+
+  return { grid, rooms, playerStart };
+}
+
+// ════════════════════════════════════════════════════════════════
+//  GAME STATE
+// ════════════════════════════════════════════════════════════════
+let G = {};
+(function buildG() {
+
+// ── State object ──────────────────────────────────────────────
+let state = null;     // active game state
+let cartridge = null; // loaded cartridge
+
+// ── Helpers ───────────────────────────────────────────────────
+function log(text, cls='') {
+  const el = document.getElementById('log');
+  const line = document.createElement('div');
+  line.className = 'log-line' + (cls ? ' ' + cls : '');
+  line.textContent = text;
+  el.prepend(line);
+  // keep max 50 lines
+  while (el.children.length > 50) el.removeChild(el.lastChild);
+}
+
+function showModal(title, body, buttons) {
+  document.getElementById('modal-title').textContent = title;
+  document.getElementById('modal-body').textContent  = body;
+  const btns = document.getElementById('modal-btns');
+  btns.innerHTML = '';
+  buttons.forEach(b => {
+    const btn = document.createElement('button');
+    btn.textContent = b.label;
+    btn.className   = b.cls || '';
+    btn.onclick     = () => { closeModal(); b.action(); };
+    btns.appendChild(btn);
+  });
+  document.getElementById('modal-overlay').classList.add('open');
+}
+function closeModal() { document.getElementById('modal-overlay').classList.remove('open'); }
+
+// ── Apply effect to state ─────────────────────────────────────
+function applyEffect(effect, source) {
+  if (!effect) return;
+  const p = state.player;
+  switch (effect.type) {
+    case 'heal':
+      p.hp = Math.min(p.max_hp, p.hp + (effect.amount||0));
+      log(`Healed ${effect.amount} HP.`, 'good');
+      break;
+    case 'damage':
+      p.hp -= (effect.amount||0);
+      log(`Took ${effect.amount} damage from ${source||'unknown'}.`, 'danger');
+      break;
+    case 'focus_change':
+      p.focus = clamp(p.focus + (effect.amount||0), 0, p.max_focus);
+      log(`Focus ${effect.amount>=0?'+':''}${effect.amount}.`);
+      break;
+    case 'hunger_change':
+      p.hunger = clamp(p.hunger + (effect.amount||0), 0, p.max_hunger);
+      if (effect.amount < 0) log(`Hunger ${effect.amount}.`, 'danger');
+      else log(`Hunger +${effect.amount}.`, 'good');
+      break;
+    case 'add_key':
+      p.keys += (effect.amount||1);
+      log(`Gained ${effect.amount||1} key(s).`, 'good');
+      break;
+    case 'reveal_map':
+      state.fog = state.fog.map(row => row.map(() => false));
+      log('The map is revealed!', 'accent');
+      break;
+    case 'attack_bonus':
+      p.attack_bonus = (p.attack_bonus||0) + (effect.amount||0);
+      log(`Attack +${effect.amount} (permanent this run).`, 'good');
+      break;
+    case 'defense_bonus':
+      p.defense_bonus = (p.defense_bonus||0) + (effect.amount||0);
+      log(`Defense +${effect.amount} (permanent this run).`, 'good');
+      break;
+    case 'max_hp_bonus':
+      p.max_hp += (effect.amount||0);
+      p.hp = Math.min(p.max_hp, p.hp + (effect.amount||0));
+      log(`Max HP +${effect.amount}.`, 'good');
+      break;
+    case 'max_focus_bonus':
+      p.max_focus += (effect.amount||0);
+      log(`Max Focus +${effect.amount}.`, 'good');
+      break;
+    case 'reputation_change':
+      if (effect.faction) {
+        const f = state.factions.find(f => f.id === effect.faction);
+        if (f) {
+          f.reputation = clamp(f.reputation + (effect.amount||0), -100, 100);
+          log(`${f.name} reputation ${effect.amount>=0?'+':''}${effect.amount}.`);
+        }
+      }
+      break;
+    case 'teleport':
+      teleportPlayer();
+      break;
+    case 'cleanse':
+      log('Cleansed of ailments.', 'good');
+      break;
+    case 'light_change':
+      log('The light shifts.', 'accent');
+      break;
+    case 'summon':
+      log('Something stirs nearby…', 'accent');
+      spawnRandomMonster();
+      break;
+  }
+}
+
+function teleportPlayer() {
+  const p = state.player;
+  for (let i = 0; i < 200; i++) {
+    const x = state.rng.range(1, GRID-2);
+    const y = state.rng.range(1, GRID-2);
+    if (state.map[y][x] === TILE.FLOOR && !getMonsterAt(x,y)) {
+      p.x = x; p.y = y;
+      updateFog();
+      log('You are suddenly elsewhere.', 'accent');
+      return;
+    }
+  }
+}
+
+function spawnRandomMonster() {
+  const tmpl = state.rng.pick(cartridge.creatures);
+  for (let i = 0; i < 100; i++) {
+    const x = state.rng.range(1, GRID-2);
+    const y = state.rng.range(1, GRID-2);
+    if (state.map[y][x] === TILE.FLOOR && !getMonsterAt(x,y) &&
+        !(x===state.player.x && y===state.player.y)) {
+      state.monsters.push({ ...tmpl, hp: tmpl.hp, x, y, id: tmpl.id+'_'+Date.now() });
+      return;
+    }
+  }
+}
+
+// ── Fog of war ────────────────────────────────────────────────
+function updateFog() {
+  const p = state.player;
+  const sight = 4;
+  for (let dy = -sight; dy <= sight; dy++) {
+    for (let dx = -sight; dx <= sight; dx++) {
+      const nx = p.x + dx, ny = p.y + dy;
+      if (nx < 0 || ny < 0 || nx >= GRID || ny >= GRID) continue;
+      if (Math.abs(dx) + Math.abs(dy) <= sight) {
+        state.fog[ny][nx]  = false;
+        state.seen[ny][nx] = true;
+      }
+    }
+  }
+}
+
+// ── Spawn entities ────────────────────────────────────────────
+function spawnEntities(rng, mapRooms) {
+  const monsters = [];
+  const items    = [];
+  const events   = [];
+
+  // Skip first room (player start), place entities in other rooms
+  for (let ri = 1; ri < mapRooms.length; ri++) {
+    const room = mapRooms[ri];
+    const floorCells = [];
+    for (let ry = room.y; ry < room.y + room.h; ry++)
+      for (let rx = room.x; rx < room.x + room.w; rx++)
+        if (state.map[ry][rx] === TILE.FLOOR) floorCells.push({ x: rx, y: ry });
+    rng.shuffle(floorCells);
+
+    // 70% chance of monster per room
+    if (rng.int(10) < 7 && floorCells.length > 0) {
+      const tmpl = rng.pick(cartridge.creatures);
+      const pos  = floorCells.pop();
+      monsters.push({ ...tmpl, hp: tmpl.hp, x: pos.x, y: pos.y });
+    }
+    // 50% chance of item per room
+    if (rng.int(10) < 5 && floorCells.length > 0) {
+      const tmpl = rng.pick(cartridge.items);
+      const pos  = floorCells.pop();
+      items.push({ ...tmpl, x: pos.x, y: pos.y });
+    }
+    // 30% chance of event trigger per room
+    if (rng.int(10) < 3 && cartridge.events.length > 0) {
+      const ev = rng.pick(cartridge.events);
+      events.push({ ...ev, roomIdx: ri });
+    }
+  }
+
+  return { monsters, items, events };
+}
+
+// ── Init a new run ─────────────────────────────────────────────
+function initRun(cart) {
+  cartridge = cart;
+  const seed = Date.now() & 0xFFFFFFFF;
+  const rng  = makePRNG(seed);
+  const { grid, rooms, playerStart } = generateMap(rng, cart);
+
+  const cp = cart.player;
+  const playerState = {
+    x: playerStart.x, y: playerStart.y,
+    hp: cp.max_hp, max_hp: cp.max_hp,
+    focus: cp.max_focus, max_focus: cp.max_focus,
+    attack: cp.attack, defense: cp.defense,
+    attack_bonus: 0, defense_bonus: 0,
+    hunger: cp.hunger, max_hunger: cp.hunger,
+    keys: 0,
+    glyph: cp.glyph,
+    inventory: []
+  };
+
+  state = {
+    seed,
+    depth: 1,
+    turn:  0,
+    player: playerState,
+    map:   grid,
+    rooms,
+    fog:   Array.from({ length: GRID }, () => new Array(GRID).fill(true)),
+    seen:  Array.from({ length: GRID }, () => new Array(GRID).fill(false)),
+    monsters: [],
+    items:    [],
+    pendingEvents: [],
+    factions: cart.factions.map(f => ({ ...f })),
+    usedShrines: new Set(),
+    gameOver: false,
+    rng
+  };
+
+  const { monsters, items, events } = spawnEntities(rng, rooms);
+  state.monsters = monsters;
+  state.items    = items;
+  state.pendingEvents = events;
+
+  updateFog();
+  render();
+  renderSidePanels();
+
+  log(`Depth ${state.depth}. ${cart.premise}`, 'accent');
+  if (cart.quest_hooks && cart.quest_hooks.length > 0)
+    log(`Rumor: "${rng.pick(cart.quest_hooks)}"`, 'important');
+}
+
+// ── Get entity helpers ────────────────────────────────────────
+function getMonsterAt(x, y) {
+  return state.monsters.find(m => m.x === x && m.y === y && m.hp > 0);
+}
+function getItemAt(x, y) {
+  return state.items.find(it => it.x === x && it.y === y);
+}
+
+// ── Combat ────────────────────────────────────────────────────
+function doAttack(attacker, defender) {
+  const atk = (attacker.attack || 1) + (attacker === state.player ? (state.player.attack_bonus||0) : 0);
+  const def = (defender.defense || 0) + (defender === state.player ? (state.player.defense_bonus||0) : 0);
+  const dmg = Math.max(1, atk - def + state.rng.range(-1, 1));
+  defender.hp -= dmg;
+  return dmg;
+}
+
+// ── Monster AI ────────────────────────────────────────────────
+function monsterTurn() {
+  const p = state.player;
+  for (const m of state.monsters) {
+    if (m.hp <= 0) continue;
+    const dx = p.x - m.x, dy = p.y - m.y;
+    const dist = Math.abs(dx) + Math.abs(dy);
+
+    if (dist === 1) {
+      // Adjacent: attack player
+      const dmg = doAttack(m, p);
+      log(`${m.name} hits you for ${dmg}.`, 'danger');
+    } else if (dist <= 6) {
+      // Chase
+      const stepX = dx !== 0 ? Math.sign(dx) : 0;
+      const stepY = dy !== 0 ? Math.sign(dy) : 0;
+      // Try primary direction, then alternates
+      const moves = [];
+      if (stepX && stepY) moves.push([stepX,0],[0,stepY],[stepX,stepY]);
+      else if (stepX)     moves.push([stepX,0],[0,1],[0,-1]);
+      else                moves.push([0,stepY],[1,0],[-1,0]);
+
+      for (const [mx, my] of moves) {
+        const nx = m.x + mx, ny = m.y + my;
+        if (nx<0||ny<0||nx>=GRID||ny>=GRID) continue;
+        const t = state.map[ny][nx];
+        if (t === TILE.WALL || t === TILE.LOCKED_DOOR) continue;
+        if (getMonsterAt(nx, ny)) continue;
+        m.x = nx; m.y = ny;
+        break;
+      }
+    }
+  }
+  // Remove dead monsters
+  state.monsters = state.monsters.filter(m => m.hp > 0);
+}
+
+// ── Hunger tick ───────────────────────────────────────────────
+function hungerTick() {
+  if (state.turn % 10 === 0) {
+    state.player.hunger--;
+    if (state.player.hunger <= 0) {
+      state.player.hunger = 0;
+      state.player.hp--;
+      log('Starving! HP -1.', 'danger');
+    } else if (state.player.hunger <= 10) {
+      log('You are very hungry.', 'danger');
+    }
+  }
+}
+
+// ── Check for random event ────────────────────────────────────
+function maybeEvent() {
+  if (cartridge.events.length === 0) return;
+  if (state.rng.int(20) === 0) {
+    const ev = state.rng.pick(cartridge.events);
+    log(`» ${ev.text}`, 'important');
+    if (ev.effect) applyEffect(ev.effect, 'event');
+  }
+}
+
+// ── End of player turn ────────────────────────────────────────
+function endTurn() {
+  if (state.gameOver) return;
+  state.turn++;
+  hungerTick();
+  maybeEvent();
+  monsterTurn();
+  checkDeath();
+  updateFog();
+  render();
+  renderSidePanels();
+}
+
+function checkDeath() {
+  if (state.player.hp <= 0 && !state.gameOver) {
+    state.gameOver = true;
+    const ending = state.rng.pick(cartridge.endings);
+    showModal('You have died', ending.text, [
+      { label:'New Run', cls:'primary', action: () => confirmNewRun() }
+    ]);
+    log('You have died.', 'danger');
+  }
+}
+
+// ── Player movement ────────────────────────────────────────────
+G.move = function(dx, dy) {
+  if (!state || state.gameOver) return;
+  const p  = state.player;
+  const nx = p.x + dx, ny = p.y + dy;
+  if (nx < 0 || ny < 0 || nx >= GRID || ny >= GRID) return;
+
+  const tile = state.map[ny][nx];
+
+  // Wall
+  if (tile === TILE.WALL) { log('A wall blocks the way.'); return; }
+
+  // Locked door
+  if (tile === TILE.LOCKED_DOOR) {
+    if (p.keys > 0) {
+      p.keys--;
+      state.map[ny][nx] = TILE.DOOR;
+      log('You unlock the door.', 'good');
+    } else {
+      log('Locked. You need a key.', 'danger');
+      return;
+    }
+  }
+
+  // Open door: just walk through
+  if (tile === TILE.DOOR) { /* passable */ }
+
+  // Monster in the way
+  const monster = getMonsterAt(nx, ny);
+  if (monster) {
+    const dmg = doAttack(p, monster);
+    log(`You hit ${monster.name} for ${dmg}.`);
+    if (monster.hp <= 0) {
+      log(`${monster.name} is defeated!`, 'good');
+      state.monsters = state.monsters.filter(m => m !== monster);
+    } else {
+      const rdmg = doAttack(monster, p);
+      log(`${monster.name} hits back for ${rdmg}.`, 'danger');
+    }
+    endTurn();
+    return;
+  }
+
+  // Move
+  p.x = nx; p.y = ny;
+
+  // Pick up item
+  const item = getItemAt(nx, ny);
+  if (item) {
+    state.items = state.items.filter(it => it !== item);
+    if (item.kind === 'key') {
+      applyEffect(item.effect, item.name);
+      log(`You found: ${item.name}.`, 'good');
+    } else {
+      p.inventory.push(item);
+      log(`Picked up: ${item.name}. (${item.description})`, 'good');
+    }
+  }
+
+  // Hazard
+  if (tile === TILE.HAZARD && cartridge.hazards.length > 0) {
+    const hz = state.rng.pick(cartridge.hazards);
+    log(`You step on ${hz.name}!`, 'danger');
+    if (hz.effect) applyEffect(hz.effect, hz.name);
+  }
+
+  // Shrine
+  if (tile === TILE.SHRINE) {
+    const key = `${nx},${ny}`;
+    if (!state.usedShrines.has(key) && cartridge.shrines.length > 0) {
+      const sh = state.rng.pick(cartridge.shrines);
+      log(`${sh.name} glows as you approach.`, 'accent');
+      if (sh.effect) applyEffect(sh.effect, sh.name);
+      state.usedShrines.add(key);
+    } else {
+      log('The shrine is spent.', 'muted');
+    }
+  }
+
+  // Stairs
+  if (tile === TILE.STAIRS_DOWN) {
+    nextFloor();
+    return;
+  }
+
+  endTurn();
+};
+
+G.wait = function() {
+  if (!state || state.gameOver) return;
+  log('You wait.');
+  endTurn();
+};
+
+// ── Next floor ────────────────────────────────────────────────
+function nextFloor() {
+  state.depth++;
+  log(`You descend to depth ${state.depth}.`, 'accent');
+  if (state.depth > 10) {
+    // Win condition
+    const ending = state.rng.pick(cartridge.endings);
+    showModal('You Escaped!', ending.text, [
+      { label:'New Run', cls:'primary', action: () => confirmNewRun() }
+    ]);
+    state.gameOver = true;
+    return;
+  }
+  const { grid, rooms, playerStart } = generateMap(state.rng, cartridge);
+  state.map   = grid;
+  state.rooms = rooms;
+  state.fog   = Array.from({ length: GRID }, () => new Array(GRID).fill(true));
+  state.seen  = Array.from({ length: GRID }, () => new Array(GRID).fill(false));
+  state.player.x = playerStart.x;
+  state.player.y = playerStart.y;
+
+  const { monsters, items, events } = spawnEntities(state.rng, rooms);
+  state.monsters = monsters;
+  state.items    = items;
+  state.pendingEvents.push(...events);
+  state.usedShrines = new Set();
+
+  updateFog();
+  render();
+  renderSidePanels();
+
+  // Announce room name
+  if (cartridge.rooms.length > 0) {
+    const roomName = state.rng.pick(cartridge.rooms);
+    log(`Floor: "${roomName.title}" — ${roomName.description}`, 'accent');
+  }
+}
+
+// ── Use item ──────────────────────────────────────────────────
+G.useItem = function() {
+  if (!state || state.gameOver) return;
+  const inv = state.player.inventory;
+  if (inv.length === 0) { log('You carry nothing.'); return; }
+
+  const listHtml = inv.map((it, i) =>
+    `<div class="inv-item" onclick="G._useItemIdx(${i})" style="cursor:pointer">
+      <span class="inv-glyph">${it.glyph}</span>
+      <span class="inv-name">${it.name}</span>
+      <span class="inv-kind">${it.kind}</span>
+    </div>`
+  ).join('');
+
+  showModal('Use Item', ' ', [{ label:'Cancel', action:()=>{} }]);
+  document.getElementById('modal-body').innerHTML = listHtml;
+};
+
+G._useItemIdx = function(i) {
+  closeModal();
+  if (!state) return;
+  const inv = state.player.inventory;
+  if (i >= inv.length) return;
+  const item = inv.splice(i, 1)[0];
+  log(`You use: ${item.name}.`, 'good');
+  if (item.effect) applyEffect(item.effect, item.name);
+  endTurn();
+};
+
+// ── Use power ─────────────────────────────────────────────────
+G.usePower = function() {
+  if (!state || state.gameOver) return;
+  if (cartridge.powers.length === 0) { log('No powers available.'); return; }
+
+  const listHtml = cartridge.powers.map((pw, i) =>
+    `<div class="power-btn" onclick="G._usePowerIdx(${i})" style="cursor:pointer;border:1px solid var(--border);border-radius:4px;margin:4px 0">
+      <span>${pw.name}</span>
+      <span class="power-cost">${pw.cost} FCS</span>
+    </div>`
+  ).join('');
+
+  showModal('Use Power', ' ', [{ label:'Cancel', action:()=>{} }]);
+  document.getElementById('modal-body').innerHTML = `<div style="font-size:12px;color:var(--muted);margin-bottom:8px">Focus: ${state.player.focus}/${state.player.max_focus}</div>${listHtml}`;
+};
+
+G._usePowerIdx = function(i) {
+  closeModal();
+  if (!state) return;
+  const pw = cartridge.powers[i];
+  if (!pw) return;
+  if (state.player.focus < pw.cost) { log(`Not enough focus for ${pw.name}.`, 'danger'); return; }
+  state.player.focus -= pw.cost;
+  log(`You use ${pw.name}. ${pw.description}`, 'accent');
+  if (pw.effect) applyEffect(pw.effect, pw.name);
+  endTurn();
+};
+
+// ── Inspect ───────────────────────────────────────────────────
+G.inspect = function() {
+  if (!state) return;
+  const p = state.player;
+  const tile = state.map[p.y][p.x];
+  const tileNames = ['Wall','Floor','Door','Locked Door','Stairs Down','Hazard','Shrine'];
+  const nearby = [];
+  for (let dy = -1; dy <= 1; dy++)
+    for (let dx = -1; dx <= 1; dx++) {
+      const m = getMonsterAt(p.x+dx, p.y+dy);
+      if (m) nearby.push(`${m.name} (HP ${m.hp})`);
+      const it = getItemAt(p.x+dx, p.y+dy);
+      if (it) nearby.push(`${it.name} [${it.kind}]`);
+    }
+  let msg = `Depth ${state.depth} | Turn ${state.turn} | Standing on: ${tileNames[tile]||'?'}`;
+  if (nearby.length) msg += `\nNearby: ${nearby.join(', ')}`;
+  log(msg, 'important');
+};
+
+// ── Save / Load ───────────────────────────────────────────────
+G.saveGame = function() {
+  if (!state) { log('Nothing to save.'); return; }
+  try {
+    const save = {
+      cartridge,
+      state: {
+        ...state,
+        rng: null,        // can't serialise RNG
+        usedShrines: [...state.usedShrines]
+      }
+    };
+    localStorage.setItem('rogue_llm_save', JSON.stringify(save));
+    log('Game saved.', 'good');
+  } catch(e) {
+    log('Save failed: ' + e.message, 'danger');
+    Debug.log('Save error: ' + e);
+  }
+};
+
+G.loadGame = function() {
+  try {
+    const raw = localStorage.getItem('rogue_llm_save');
+    if (!raw) { log('No save found.'); return; }
+    const save = JSON.parse(raw);
+    cartridge = save.cartridge;
+    state = save.state;
+    state.rng = makePRNG(state.seed ^ state.turn);
+    state.usedShrines = new Set(state.usedShrines || []);
+    updateFog();
+    render();
+    renderSidePanels();
+    log('Game loaded.', 'good');
+  } catch(e) {
+    log('Load failed: ' + e.message, 'danger');
+    Debug.log('Load error: ' + e);
+  }
+};
+
+// ── New Run ───────────────────────────────────────────────────
+G.newRun = function() {
+  if (!cartridge) {
+    cartridge = validateCartridge(DEFAULT_CARTRIDGE);
+  }
+  initRun(cartridge);
+};
+
+G.confirmNewRun = function() {
+  if (!state || state.gameOver) { G.newRun(); return; }
+  showModal('Start New Run?', 'Your current progress will be lost.', [
+    { label:'Yes, new run', cls:'danger', action: G.newRun },
+    { label:'Cancel', action: ()=>{} }
+  ]);
+};
+
+// ── Cartridge import/export ───────────────────────────────────
+G.exportCartridge = function() {
+  if (!cartridge) { log('No cartridge loaded.'); return; }
+  document.getElementById('cartridge-json').value = JSON.stringify(cartridge, null, 2);
+  togglePanel('cart-panel', true);
+  log('Cartridge exported to text area.', 'good');
+};
+
+G.importCartridgePrompt = function() {
+  const raw = document.getElementById('cartridge-json').value.trim();
+  if (!raw) { log('Paste JSON into the cartridge field first.'); return; }
+  try {
+    const cart = validateCartridge(raw);
+    cartridge = cart;
+    document.getElementById('game-title').textContent = cart.title.toUpperCase();
+    document.getElementById('premise-text').textContent = cart.premise;
+    log(`Cartridge loaded: "${cart.title}"`, 'accent');
+    showModal('Cartridge Imported', `"${cart.title}" is ready. Start a new run?`, [
+      { label:'New Run', cls:'primary', action: G.newRun },
+      { label:'Later', action:()=>{} }
+    ]);
+  } catch(e) {
+    log('Import failed: ' + e.message, 'danger');
+    Debug.log('Cartridge error: ' + e.message);
+    showModal('Import Error', e.message, [{ label:'OK', action:()=>{} }]);
+  }
+};
+
+G.loadDefaultCartridge = function() {
+  try {
+    cartridge = validateCartridge(DEFAULT_CARTRIDGE);
+    document.getElementById('game-title').textContent = cartridge.title.toUpperCase();
+    document.getElementById('premise-text').textContent = cartridge.premise;
+    log(`Default cartridge: "${cartridge.title}"`, 'accent');
+  } catch(e) {
+    Debug.log('Default cartridge error: ' + e.message);
+  }
+};
+
+// ── LLM prompt ────────────────────────────────────────────────
+G.copyPrompt = function() {
+  const ta = document.getElementById('llm-prompt');
+  ta.select();
+  try {
+    document.execCommand('copy');
+    log('Prompt copied to clipboard.', 'good');
+  } catch(e) {
+    log('Copy failed — select text manually.', 'danger');
+  }
+};
+
+// ── Toggle panel ──────────────────────────────────────────────
+window.togglePanel = function(id, forceOpen) {
+  const body = document.getElementById(id).querySelector('.panel-body');
+  if (!body) return;
+  if (forceOpen) { body.classList.add('open'); return; }
+  body.classList.toggle('open');
+};
+
+// ── Render ────────────────────────────────────────────────────
+function render() {
+  if (!state) return;
+  const p = state.player;
+
+  // Stats
+  document.getElementById('s-hp').textContent    = `${p.hp}/${p.max_hp}`;
+  document.getElementById('s-fp').textContent    = `${p.focus}/${p.max_focus}`;
+  document.getElementById('s-hng').textContent   = p.hunger;
+  document.getElementById('s-atk').textContent   = p.attack + (p.attack_bonus||0);
+  document.getElementById('s-def').textContent   = p.defense + (p.defense_bonus||0);
+  document.getElementById('s-keys').textContent  = p.keys;
+  document.getElementById('s-depth').textContent = state.depth;
+
+  // Map
+  const canvas = document.getElementById('map-canvas');
+  canvas.style.gridTemplateColumns = `repeat(${GRID}, var(--cell))`;
+  canvas.innerHTML = '';
+
+  const tileGlyph = { [TILE.WALL]:'#', [TILE.FLOOR]:'.', [TILE.DOOR]:'+',
+    [TILE.LOCKED_DOOR]:'⚿', [TILE.STAIRS_DOWN]:'>', [TILE.HAZARD]:'', [TILE.SHRINE]:'' };
+  const tileCls   = { [TILE.WALL]:'wall', [TILE.FLOOR]:'floor', [TILE.DOOR]:'door',
+    [TILE.LOCKED_DOOR]:'door', [TILE.STAIRS_DOWN]:'stairs', [TILE.HAZARD]:'hazard', [TILE.SHRINE]:'shrine' };
+
+  for (let y = 0; y < GRID; y++) {
+    for (let x = 0; x < GRID; x++) {
+      const cell = document.createElement('div');
+      cell.className = 'cell';
+
+      if (state.fog[y][x] && !state.seen[y][x]) {
+        cell.classList.add('cell-dark');
+        canvas.appendChild(cell);
+        continue;
+      }
+
+      const inFog = state.fog[y][x]; // seen but currently dark
+      const tile  = state.map[y][x];
+
+      if (x === p.x && y === p.y) {
+        cell.classList.add('cell-player');
+        cell.textContent = p.glyph;
+      } else {
+        const monster = !inFog && getMonsterAt(x, y);
+        const item    = !inFog && getItemAt(x, y);
+        if (monster) {
+          cell.classList.add('cell-monster');
+          cell.textContent = monster.glyph;
+        } else if (item) {
+          cell.classList.add('cell-item');
+          cell.textContent = item.glyph;
+        } else {
+          // pick hazard/shrine glyphs from cartridge
+          let glyph = tileGlyph[tile] ?? '?';
+          if (tile === TILE.HAZARD && cartridge.hazards.length)
+            glyph = state.rng.pick(cartridge.hazards).glyph;
+          if (tile === TILE.SHRINE && cartridge.shrines.length)
+            glyph = state.rng.pick(cartridge.shrines).glyph;
+          cell.classList.add('cell-' + (tileCls[tile]||'floor'));
+          if (inFog) cell.style.opacity = '0.35';
+          cell.textContent = glyph;
+        }
+      }
+      canvas.appendChild(cell);
+    }
+  }
+}
+
+// ── Render side panels ────────────────────────────────────────
+function renderSidePanels() {
+  if (!state) return;
+  renderInventory();
+  renderFactions();
+}
+
+function renderInventory() {
+  const inv = state.player.inventory;
+  document.getElementById('inv-count').textContent = inv.length ? `(${inv.length})` : '(empty)';
+  const el = document.getElementById('inventory-list');
+  if (inv.length === 0) {
+    el.innerHTML = '<em style="color:var(--muted)">Nothing carried.</em>';
+    return;
+  }
+  el.innerHTML = inv.map((it, i) =>
+    `<div class="inv-item" onclick="G._useItemIdx(${i})" style="cursor:pointer">
+      <span class="inv-glyph">${it.glyph}</span>
+      <div style="flex:1"><div class="inv-name">${it.name}</div><div class="inv-kind">${it.kind} — ${it.description||''}</div></div>
+    </div>`
+  ).join('');
+}
+
+function renderFactions() {
+  if (!state.factions || state.factions.length === 0) return;
+  const el = document.getElementById('faction-list');
+  el.innerHTML = state.factions.map(f => {
+    const rep = f.reputation;
+    const pct = Math.abs(rep);
+    const cls = rep >= 0 ? 'rep-pos' : 'rep-neg';
+    return `<div class="faction-row">
+      <span class="faction-name">${f.name}</span>
+      <div class="faction-rep-bar"><div class="faction-rep-fill ${cls}" style="width:${pct}%"></div></div>
+      <span class="faction-rep-val">${rep}</span>
+    </div>`;
+  }).join('');
+}
+
+// ── LLM prompt content ────────────────────────────────────────
+function buildLLMPrompt() {
+  return `You are a world cartridge generator for a roguelike game called Rogue LLM.
+
+Return ONLY valid JSON. No markdown. No explanation. No code blocks. Just the JSON object.
+
+Generate a complete world cartridge conforming EXACTLY to this schema:
+
+{
+  "schema_version": "0.4",
+  "title": "string",
+  "genre": "string",
+  "premise": "string (1-2 sentences)",
+  "tone": ["string", ...],
+  "laws_of_reality": ["string", ...],
+  "player": {
+    "name": "string",
+    "max_hp": 30,
+    "max_focus": 12,
+    "attack": 5,
+    "defense": 1,
+    "hunger": 80,
+    "glyph": "@"
+  },
+  "powers": [ { "id":"snake_case", "name":"string", "cost":4, "description":"string", "effect":{ "type":"one of the legal types below", ... } } ],
+  "factions": [ { "id":"snake_case", "name":"string", "reputation":0, "agenda":"string" } ],
+  "creatures": [ { "id":"snake_case", "name":"string", "glyph":"single char", "hp":10, "attack":3, "defense":0, "behavior":"chase|guard|patrol", "tags":["string"] } ],
+  "items": [ { "id":"snake_case", "name":"string", "glyph":"single char", "kind":"key|food|potion|relic|weapon|armor|focus", "description":"string", "rarity":1, "effect":{ "type":"...", "amount":0 } } ],
+  "rooms": [ { "title":"string", "description":"string" } ],
+  "events": [ { "id":"snake_case", "text":"string", "effect":{ "type":"...", "amount":0, "faction":"snake_case" } } ],
+  "hazards": [ { "id":"snake_case", "name":"string", "glyph":"single char", "effect":{ "type":"damage", "amount":1 } } ],
+  "shrines": [ { "id":"snake_case", "name":"string", "glyph":"single char", "effect":{ "type":"heal", "amount":6 } } ],
+  "quest_hooks": ["string"],
+  "endings": [ { "id":"snake_case", "text":"string" } ]
+}
+
+LEGAL EFFECT TYPES (use ONLY these):
+heal, damage, focus_change, hunger_change, add_key, reveal_map,
+attack_bonus, defense_bonus, max_hp_bonus, max_focus_bonus,
+reputation_change, summon, teleport, cleanse, light_change
+
+BALANCE CONSTRAINTS:
+- player max_hp: 15–50, attack: 3–10, defense: 0–5
+- creature hp: 3–30, attack: 1–12, defense: 0–6
+- item rarity: 1–5
+- power cost: 1–15
+- heal amounts: 1–20
+- damage amounts: 1–8
+
+REQUIREMENTS:
+- Use snake_case for all id fields
+- Include at least: 4 factions, 6 creatures, 8 items, 10 rooms, 8 events, 2 hazards, 2 shrines, 5 quest_hooks, 3 endings
+- Do NOT invent new effect types
+- Do NOT add fields not in the schema
+- Return JSON only — no prose before or after
+
+The genre/theme is your choice. Be creative and specific. Avoid generic fantasy.
+Good examples: "deep-sea corporate espionage", "1920s circus ghosts", "bureaucratic afterlife",
+"Antarctic mycology horror", "Meiji-era spirit detective", "sentient library uprising".`;
+}
+
+// ── Keyboard support ──────────────────────────────────────────
+document.addEventListener('keydown', function(e) {
+  switch(e.key) {
+    case 'ArrowUp':    case 'w': case 'k': G.move(0,-1);  e.preventDefault(); break;
+    case 'ArrowDown':  case 's': case 'j': G.move(0,1);   e.preventDefault(); break;
+    case 'ArrowLeft':  case 'a': case 'h': G.move(-1,0);  e.preventDefault(); break;
+    case 'ArrowRight': case 'd': case 'l': G.move(1,0);   e.preventDefault(); break;
+    case '.': case ' ':  G.wait();        e.preventDefault(); break;
+    case 'i':  G.useItem();               e.preventDefault(); break;
+    case 'p':  G.usePower();              e.preventDefault(); break;
+    case 'x':  G.inspect();               e.preventDefault(); break;
+    case 'S':  G.saveGame();              e.preventDefault(); break;
+    case 'L':  G.loadGame();              e.preventDefault(); break;
+  }
+});
+
+// ── Touch swipe support ───────────────────────────────────────
+(function() {
+  let tx0, ty0;
+  const mapEl = document.getElementById('map-area');
+  mapEl.addEventListener('touchstart', e => {
+    tx0 = e.touches[0].clientX;
+    ty0 = e.touches[0].clientY;
+  }, { passive: true });
+  mapEl.addEventListener('touchend', e => {
+    if (tx0 === undefined) return;
+    const dx = e.changedTouches[0].clientX - tx0;
+    const dy = e.changedTouches[0].clientY - ty0;
+    const adx = Math.abs(dx), ady = Math.abs(dy);
+    if (adx < 12 && ady < 12) { G.wait(); return; }
+    if (adx > ady) G.move(dx > 0 ? 1 : -1, 0);
+    else           G.move(0, dy > 0 ? 1 : -1);
+    tx0 = ty0 = undefined;
+  }, { passive: true });
+})();
+
+// ── Boot ──────────────────────────────────────────────────────
+(function boot() {
+  // Populate LLM prompt
+  document.getElementById('llm-prompt').value = buildLLMPrompt();
+
+  // Load default cartridge
+  try {
+    cartridge = validateCartridge(DEFAULT_CARTRIDGE);
+    document.getElementById('game-title').textContent = cartridge.title.toUpperCase();
+    document.getElementById('premise-text').textContent = cartridge.premise;
+  } catch(e) {
+    Debug.log('Boot cartridge error: ' + e.message);
+  }
+
+  // Auto-start
+  G.newRun();
+})();
+
+})(); // end G closure
+</script>
+</body>
+</html>
